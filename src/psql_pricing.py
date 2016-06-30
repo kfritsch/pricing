@@ -3,7 +3,7 @@ import os, sys
 from os.path import join, realpath, dirname, isdir
 
 MODUL_PATH = join(dirname(realpath(__file__)), os.pardir)
-ANALYSIS_PATH = join(MODUL_PATH, "analysis")
+ANALYSIS_PATH = join(MODUL_PATH, "analysis_docs")
 
 # python postgres api
 import psycopg2

@@ -1,6 +1,6 @@
 This is BibTeX, Version 0.99d (TeX Live 2013/Debian)
 Capacity: max_strings=35307, hash_size=35307, hash_prime=30011
-The top-level auxiliary file: Bachelorarbeit.aux
+The top-level auxiliary file: ba_ausblick.aux
 The style file: myalpha.bst
 Reallocated singl_function (elt_size=4) to 100 items from 50.
 Reallocated singl_function (elt_size=4) to 100 items from 50.
@@ -20,7 +20,7 @@ Warning--entry type for "TkAPI" isn't style-file defined
 --line 29 of file bibo.bib
 You've used 5 entries,
             4793 wiz_defined-function locations,
-            915 strings with 7065 characters,
+            915 strings with 7059 characters,
 and the built_in function-call counts, 1904 in all, are:
 = -- 192
 > -- 40
