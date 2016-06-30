@@ -1,0 +1,39 @@
+Automatisierte Analyse von Preisbildungsmustern anhand von Zeitreihendaten der Markttransparenzstelle für Kraftstoffe
+
+verstärkte Automatisierug im Kraftstoffsektor:
+Einführung der Markttransparenzstelle für Kraftstoffez
+Zunahme der Änderungen. Gesteigerte Konsistenz -> Automatisierung liegt nahe
+(starke Konsistenz im Kaufverhalten?)
+
+Motivation:
+Live-Verfügbarkeit aller Daten erleichtert und schürt somit Konkurenzverhalten
+Bildung von weithin verfolgten Preisstrategien 
+Teilweise Preisveränderungen über mehr als 100km nachvollziehbar
+stark schwankende Preise
+Da auch selber bereits halbautomatisch gearbeitet wird liegen Automatismen bei der Konkurenz nahe
+-> Bessere Kenntnis der Preisstrategie der Konkurenz vergrößert eigenen Handlungsoptimierung
+
+Datenschnittstelle + Verfügbarkeit:
+Aufbereitung der MArktransparenzstelle(siehe Info)
+	Stammdaten + Pricing Daten
+	Zeitverzögerung
+	Konsistenz der Daten
+
+Verhaltensanalyse und Muster:
+- Preisführer erkennen
+	Wahrscheinlichkeit der Erstauslösung
+
+
+- Abhängigkeiten
+	Wahrscheinlichkeit der Reaktion
+	Höhe der Reaktion
+	-> Konkurenzbezirke und Muster erkennen
+	-> Ausdehnung durch überlagerung von Bezirken
+
+- Automatierungsgrad
+	Reaktionszeit Mittelwert
+	Reaktionszeit Varianz
+	-> Je Konsistenter desto wahrscheinlicher automatisiert
+
+- zeitliche(historische) Konsistenz
+	Konsistenz von Mustern über größerer Zeiträume

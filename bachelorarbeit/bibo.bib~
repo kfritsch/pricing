@@ -1,0 +1,14 @@
+@Book{buch,
+	author = {Max Mustermann},
+	title = {Ich bin ein Buch},
+	publisher = {Verlag},
+	year = {2013}
+}
+
+@Online{BKAKr,
+  author = {Bundeskartelamt},
+  title = {Markttransparenzstelle für Kraftstoffe},
+  year = 1999,
+  url = {http://www.bundeskartellamt.de/DE/Wirtschaftsbereiche/Mineral%C3%B6l/MTS-Kraftstoffe/mtskraftstoffe_node.html},
+  urldate = {2016-06-28}
+}

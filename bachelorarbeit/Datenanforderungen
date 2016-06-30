@@ -1,0 +1,48 @@
+Datenanforderungen
+
+Datenaufbau:
+gas_station:
+	id:: 			uuid
+	version::		char(10) 	
+	version_time::	timestamp
+	name::			str
+	brand::			str			
+	street			str
+	house_number::	str	
+	post_code::		str
+	place::			str		
+	public_holida::	str
+	lat::			double
+	lng::			double
+
+gas_station_information_history:
+	id::			integer 
+	stid::			uuid
+	e5::			smallint
+	e10::			smallint
+	diesel::		smallint
+	date::			timestamp
+	changed::		smallint
+
+Needed:
+leichter Zeitvergleich
+Bezirke
+
+Verhaltensanalyse und Muster:
+- Preisführer erkennen
+	Wahrscheinlichkeit der Erstauslösung
+
+
+- Abhängigkeiten
+	Wahrscheinlichkeit der Reaktion
+	Höhe der Reaktion
+	-> Konkurenzbezirke und Muster erkennen
+	-> Ausdehnung durch überlagerung von Bezirken
+
+- Automatierungsgrad
+	Reaktionszeit Mittelwert
+	Reaktionszeit Varianz
+	-> Je Konsistenter desto wahrscheinlicher automatisiert
+
+- zeitliche(historische) Konsistenz
+	Konsistenz von Mustern über größerer Zeiträume

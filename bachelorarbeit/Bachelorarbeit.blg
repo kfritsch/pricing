@@ -1,0 +1,62 @@
+This is BibTeX, Version 0.99d (TeX Live 2013/Debian)
+Capacity: max_strings=35307, hash_size=35307, hash_prime=30011
+The top-level auxiliary file: Bachelorarbeit.aux
+The style file: myalpha.bst
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Reallocated wiz_functions (elt_size=4) to 6000 items from 3000.
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Database file #1: bibo.bib
+Warning--entry type for "BkMTS" isn't style-file defined
+--line 1 of file bibo.bib
+Warning--entry type for "IMTSK" isn't style-file defined
+--line 8 of file bibo.bib
+Warning--entry type for "PraTa" isn't style-file defined
+--line 15 of file bibo.bib
+Warning--entry type for "Unity" isn't style-file defined
+--line 22 of file bibo.bib
+Warning--entry type for "TkAPI" isn't style-file defined
+--line 29 of file bibo.bib
+You've used 5 entries,
+            4793 wiz_defined-function locations,
+            915 strings with 7065 characters,
+and the built_in function-call counts, 1904 in all, are:
+= -- 192
+> -- 40
+< -- 17
++ -- 19
+- -- 10
+* -- 107
+:= -- 335
+add.period$ -- 5
+call.type$ -- 5
+change.case$ -- 20
+chr.to.int$ -- 3
+cite$ -- 5
+duplicate$ -- 70
+empty$ -- 156
+format.name$ -- 30
+if$ -- 414
+int.to.chr$ -- 3
+int.to.str$ -- 0
+missing$ -- 30
+newline$ -- 35
+num.names$ -- 15
+pop$ -- 45
+preamble$ -- 1
+purify$ -- 30
+quote$ -- 0
+skip$ -- 80
+stack$ -- 0
+substring$ -- 67
+swap$ -- 15
+text.length$ -- 10
+text.prefix$ -- 5
+top$ -- 0
+type$ -- 50
+warning$ -- 0
+while$ -- 15
+width$ -- 8
+write$ -- 67
+(There were 5 warnings)

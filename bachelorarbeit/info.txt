@@ -1,0 +1,41 @@
+# Tankstellen Pricing (Preisentwicklung)
+
+1. Datenverwaltung
+..* Stammdaten einer Tankstelle müssen wöchentlich an das Bundeskartellamt
+gemeldet werden (Geodaten und Öffnungszeiten)
+..* Preisänderungen für E10, Super und Diesel müssen innerhalb von 5min an das
+Bundeskartellamt gemeldet werden (komplett alle Tankstellen bei einer Änderung)
+..* Verbraucherinformationsdienste können diese Daten vom Kartellamt erhalten,
+sofern sie den Verbrauchern zugute kommen und dann auch weiter verkaufen
+..* Durch Verzögerungen sind die Informationen spätestens 15 min nach Änderung
+bei einem Kunden
+
+2. Preise
+..* Zusammensetzung
+...* Mineralölsteuer
+...* Mehrwertsteuer
+...* Rohölpreis
+...* Vermarktungskosten
+
+..* Der Mindestpreis steigt somit quasi 1 zu 1 mit dem Rohölpreis
+..* Verkaufspreis darf rechtlich gesehen nicht unter den Einstandskosten
+(Beschaffungskosten nicht Einkaufspreis) verkauft werden
+..* Wird nicht häufig überprüft, da die ganzen Finanzen eines UNternehmens
+überprüft werden müssten(nur in offensichtlichen Fällen)
+..* Eingekauft wird oft in Monatskontrakten (Preis ist mittel über den ganzen
+Monat). Der Preis wird über den Börsenkurs für den Monat abgeschätzt um den
+Einstandspreis zu berechnen
+
+3. Strategien
+..* A-Preiser -> prinzipiell ca 1 Cent über B-Preiser (Marken-Tankstellen)
+..* B-Preiser -> 					"				(entsprechend umgekehrt)
+..* Es wird auf ensprechende Tankstellen im Umfeld (Konkurenzbereich) reagiert
+..* Reaktion erfolgt auf den jeweils günstigsten Preis der anderen Rubrik
+..* Abends erfolgt Preiserhöhung und morgens Senkung (geführt von großen
+Konzernen - Q1 nur reagierend)
+
+
+4. Verfügbare Daten
+..* Preisentwicklung über mehrer Jahre (creativecommons.tankerkoenig.de)
+..* Q1 Umsätze aus mehreren Jahren
+..* Q1 Absätze aus mehreren Jahren
