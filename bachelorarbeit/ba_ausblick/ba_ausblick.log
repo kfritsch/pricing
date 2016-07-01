@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.1415926-2.5-1.40.14 (TeX Live 2013/Debian) (format=pdflatex 2016.6.22)  30 JUN 2016 12:05
+This is pdfTeX, Version 3.1415926-2.5-1.40.14 (TeX Live 2013/Debian) (format=pdflatex 2016.6.22)  1 JUL 2016 12:18
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -962,7 +962,7 @@ LaTeX Info: Redefining \nameref on input line 48.
 
 \c@lstlisting=\count170
 
-<Bilder/uni_os_l.png, id=56, 393.47pt x 129.48375pt>
+<Bilder/uni_os_l.png, id=48, 393.47pt x 129.48375pt>
 File: Bilder/uni_os_l.png Graphic file (type png)
  <use Bilder/uni_os_l.png>
 Package pdftex.def Info: Bilder/uni_os_l.png used on input line 75.
@@ -1025,7 +1025,7 @@ Package babel Info: Redefining ngerman shorthand "|
 Package babel Info: Redefining ngerman shorthand "~
 (babel)             in language  on input line 124.
 
-<Bilder/Informationsfluss-MTS.png, id=74, 845.0772pt x 597.432pt>
+<Bilder/Informationsfluss-MTS.png, id=66, 845.0772pt x 597.432pt>
 File: Bilder/Informationsfluss-MTS.png Graphic file (type png)
 
 <use Bilder/Informationsfluss-MTS.png>
@@ -1047,7 +1047,7 @@ Package babel Info: Redefining ngerman shorthand "|
 Package babel Info: Redefining ngerman shorthand "~
 (babel)             in language  on input line 139.
 [2 <./Bilder/Informationsfluss-MTS.png (PNG copy)>]
-<Bilder/pricing_data.png, id=85, 560.8453pt x 208.52907pt>
+<Bilder/pricing_data.png, id=77, 560.8453pt x 208.52907pt>
 File: Bilder/pricing_data.png Graphic file (type png)
 
 <use Bilder/pricing_data.png>
@@ -1085,7 +1085,7 @@ Underfull \hbox (badness 10000) in paragraph at lines 173--174
 
  []
 
-<Bilder/konkurenz.png, id=95, 869.2475pt x 280.04625pt>
+<Bilder/konkurenz.png, id=87, 869.2475pt x 280.04625pt>
 
 Package caption Warning: The option `hypcap=true' will be ignored for this
 (caption)                particular \caption on input line 177.
@@ -1104,7 +1104,7 @@ Underfull \hbox (badness 10000) in paragraph at lines 182--183
 
  []
 
-<Bilder/regeln2.png, id=110, 756.8275pt x 233.87375pt>
+<Bilder/regeln2.png, id=102, 756.8275pt x 233.87375pt>
 
 Package caption Warning: The option `hypcap=true' will be ignored for this
 (caption)                particular \caption on input line 185.
@@ -1115,7 +1115,7 @@ Underfull \hbox (badness 10000) in paragraph at lines 190--191
 
  []
 
-<Bilder/automatik.png, id=111, 1064.97874pt x 731.73375pt>
+<Bilder/automatik.png, id=103, 1064.97874pt x 731.73375pt>
 
 Package caption Warning: The option `hypcap=true' will be ignored for this
 (caption)                particular \caption on input line 193.
@@ -1130,6 +1130,11 @@ Package babel Info: Redefining ngerman shorthand "|
 Package babel Info: Redefining ngerman shorthand "~
 (babel)             in language  on input line 193.
 [5]
+Overfull \hbox (8.21082pt too wide) in paragraph at lines 196--197
+\OT1/cmr/m/n/12 Verz[]ogerungszeit in die-sem Fall wom[]oglich von der Re-ak-ti
+-ons-zeit des Nut-zers abh[]angt.
+ []
+
 Package babel Info: Redefining ngerman shorthand "|
 (babel)             in language  on input line 210.
 Package babel Info: Redefining ngerman shorthand "~
@@ -1138,7 +1143,7 @@ Package babel Info: Redefining ngerman shorthand "|
 (babel)             in language  on input line 210.
 Package babel Info: Redefining ngerman shorthand "~
 (babel)             in language  on input line 210.
- [6]
+[6]
 Package babel Info: Redefining ngerman shorthand "|
 (babel)             in language  on input line 215.
 Package babel Info: Redefining ngerman shorthand "~
@@ -1158,13 +1163,13 @@ Underfull \hbox (badness 10000) in paragraph at lines 223--224
  []
 
 Package babel Info: Redefining ngerman shorthand "|
-(babel)             in language  on input line 225.
+(babel)             in language  on input line 224.
 Package babel Info: Redefining ngerman shorthand "~
-(babel)             in language  on input line 225.
+(babel)             in language  on input line 224.
 Package babel Info: Redefining ngerman shorthand "|
-(babel)             in language  on input line 225.
+(babel)             in language  on input line 224.
 Package babel Info: Redefining ngerman shorthand "~
-(babel)             in language  on input line 225.
+(babel)             in language  on input line 224.
 [7]
 Underfull \hbox (badness 10000) in paragraph at lines 225--226
 
@@ -1176,39 +1181,74 @@ Underfull \hbox (badness 10000) in paragraph at lines 227--228
  []
 
 Package babel Info: Redefining ngerman shorthand "|
-(babel)             in language  on input line 230.
+(babel)             in language  on input line 228.
 Package babel Info: Redefining ngerman shorthand "~
-(babel)             in language  on input line 230.
+(babel)             in language  on input line 228.
 Package babel Info: Redefining ngerman shorthand "|
-(babel)             in language  on input line 230.
+(babel)             in language  on input line 228.
 Package babel Info: Redefining ngerman shorthand "~
-(babel)             in language  on input line 230.
+(babel)             in language  on input line 228.
 [8]
 Package babel Info: Redefining ngerman shorthand "|
 (babel)             in language  on input line 232.
 Package babel Info: Redefining ngerman shorthand "~
 (babel)             in language  on input line 232.
+
+Underfull \hbox (badness 10000) in paragraph at lines 234--235
+
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 236--237
+
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 238--239
+
+ []
+
 Package babel Info: Redefining ngerman shorthand "|
-(babel)             in language  on input line 235.
+(babel)             in language  on input line 239.
 Package babel Info: Redefining ngerman shorthand "~
-(babel)             in language  on input line 235.
+(babel)             in language  on input line 239.
 Package babel Info: Redefining ngerman shorthand "|
-(babel)             in language  on input line 238.
+(babel)             in language  on input line 239.
 Package babel Info: Redefining ngerman shorthand "~
-(babel)             in language  on input line 238.
+(babel)             in language  on input line 239.
+[9]
+Underfull \hbox (badness 10000) in paragraph at lines 240--241
+
+ []
+
 Package babel Info: Redefining ngerman shorthand "|
-(babel)             in language  on input line 241.
+(babel)             in language  on input line 243.
 Package babel Info: Redefining ngerman shorthand "~
-(babel)             in language  on input line 241.
+(babel)             in language  on input line 243.
 Package babel Info: Redefining ngerman shorthand "|
-(babel)             in language  on input line 244.
+(babel)             in language  on input line 243.
 Package babel Info: Redefining ngerman shorthand "~
-(babel)             in language  on input line 244.
+(babel)             in language  on input line 243.
+[10]
 Package babel Info: Redefining ngerman shorthand "|
-(babel)             in language  on input line 244.
+(babel)             in language  on input line 245.
 Package babel Info: Redefining ngerman shorthand "~
-(babel)             in language  on input line 244.
- [9] (./ba_ausblick.bbl
+(babel)             in language  on input line 245.
+
+Overfull \hbox (10.11996pt too wide) in paragraph at lines 247--248
+\OT1/cmr/m/n/12 rung. Tank-stel-len k[]onnen kei-nes die-ser Tools ver-wen-den 
+und auf an-de-re Mit-tel zur[]uckgreifen.
+ []
+
+Package babel Info: Redefining ngerman shorthand "|
+(babel)             in language  on input line 256.
+Package babel Info: Redefining ngerman shorthand "~
+(babel)             in language  on input line 256.
+Package babel Info: Redefining ngerman shorthand "|
+(babel)             in language  on input line 256.
+Package babel Info: Redefining ngerman shorthand "~
+(babel)             in language  on input line 256.
+[11] (./ba_ausblick.bbl
 Package babel Info: Redefining ngerman shorthand "|
 (babel)             in language  on input line 1.
 Package babel Info: Redefining ngerman shorthand "~
@@ -1258,31 +1298,31 @@ n / 050 _ PreisbildungTS _
 
 )
 Package babel Info: Redefining ngerman shorthand "|
-(babel)             in language  on input line 421.
+(babel)             in language  on input line 433.
 Package babel Info: Redefining ngerman shorthand "~
-(babel)             in language  on input line 421.
+(babel)             in language  on input line 433.
 Package babel Info: Redefining ngerman shorthand "|
-(babel)             in language  on input line 421.
+(babel)             in language  on input line 433.
 Package babel Info: Redefining ngerman shorthand "~
-(babel)             in language  on input line 421.
- [10]
-Package atveryend Info: Empty hook `BeforeClearDocument' on input line 462.
-Package atveryend Info: Empty hook `AfterLastShipout' on input line 462.
+(babel)             in language  on input line 433.
+ [12]
+Package atveryend Info: Empty hook `BeforeClearDocument' on input line 474.
+Package atveryend Info: Empty hook `AfterLastShipout' on input line 474.
  (./ba_ausblick.aux)
-Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 462.
-Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 462.
+Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 474.
+Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 474.
 Package rerunfilecheck Info: File `ba_ausblick.out' has not changed.
-(rerunfilecheck)             Checksum: 1ABE883EFC774C8BCCD97CCB39115830;872.
-Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 462.
+(rerunfilecheck)             Checksum: 05782610ED2C4D894259E4F119E46506;729.
+Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 474.
  ) 
 Here is how much of TeX's memory you used:
- 12878 strings out of 494976
- 191846 string characters out of 6179137
- 341437 words of memory out of 5000000
- 15855 multiletter control sequences out of 15000+600000
+ 12876 strings out of 494976
+ 191800 string characters out of 6179137
+ 342437 words of memory out of 5000000
+ 15853 multiletter control sequences out of 15000+600000
  13975 words of font info for 54 fonts, out of 8000000 for 9000
  14 hyphenation exceptions out of 8191
- 50i,12n,54p,1641b,551s stack positions out of 5000i,500n,10000p,200000b,80000s
+ 50i,11n,54p,1790b,551s stack positions out of 5000i,500n,10000p,200000b,80000s
 </usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx12.pfb></us
 r/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmcsc10.pfb></usr/sha
 re/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi12.pfb></usr/share/tex
@@ -1294,10 +1334,10 @@ blic/amsfonts/cm/cmssbx10.pfb></usr/share/texlive/texmf-dist/fonts/type1/public
 /amsfonts/cm/cmti12.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfo
 nts/cm/cmtt10.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm
 /cmtt12.pfb>
-Output written on ba_ausblick.pdf (11 pages, 212793 bytes).
+Output written on ba_ausblick.pdf (13 pages, 219567 bytes).
 PDF statistics:
- 204 PDF objects out of 1000 (max. 8388607)
- 169 compressed objects within 2 object streams
+ 205 PDF objects out of 1000 (max. 8388607)
+ 168 compressed objects within 2 object streams
  39 named destinations out of 1000 (max. 500000)
- 135 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 119 words of extra memory for PDF output out of 10000 (max. 10000000)
 
