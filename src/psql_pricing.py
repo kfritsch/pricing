@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-import os, sys
+import os, sys, traceback, copy
 from os.path import join, realpath, dirname, isdir
 
 MODUL_PATH = join(dirname(realpath(__file__)), os.pardir)
@@ -14,19 +14,23 @@ import pytz
 from datetime import datetime, timedelta, time
 from math import sin, cos, atan2, sqrt, radians
 import numpy as np
+from scipy import stats
 import matplotlib.pyplot as plt
 # python 
 from geopy.geocoders import Nominatim
 
 STATION_DICT = None
 CURSOR = None
+SECS_PER_HOUR = 86400
 
 INIT_DATE = datetime(2014,6,8).date()
+END_DATE = datetime(2016,4,17).date()
 
-STDI = "stid=%s"
+PG_STDI = "stid=%s"
 # Change to from and to dates
-D_INT = "date::date>=%s AND date::date<=%s"
-MONTH = "EXTRACT(MONTH FROM date) = %s"
+PG_D_INT = "date::date>=%s AND date::date<=%s"
+PG_MONTH = "EXTRACT(MONTH FROM date) = %s"
+PG_YEAR = "EXTRACT(MONTH FROM date) = %s"
 
 day = {
 	# weekday
@@ -72,12 +76,11 @@ class bcolors:
     FAIL = '\033[91m'
     ENDC = '\033[0m'
     BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
-
+    UNDERLINE = '\033[4m' 
 
 class Station(object):
 	__slots__ = ('id', 'version', 'version_time', 'name', 'brand', 'address',
-		'geo_pos', 'neighbors', 'pricing_mat', 'month_hist')
+		'geo_pos', 'neighbors', 'pricing_mat', 'leader', 'follower')
 
 	def __init__(self, station_data):
 		if(station_data[0]!=None):
@@ -111,7 +114,7 @@ class Station(object):
 		"""
 		if(station_data[4]!=None):
 			self.brand = replace_Umlaute(station_data[4])
-		else: self.brand = 'NA'
+		else: self.brand = ''
 		"""
 		@ivar   brand: The stations brand
 		@dtype  brand: C{str}
@@ -154,19 +157,39 @@ class Station(object):
 		@dtype  neighbors: C{list}
 		"""
 		self.pricing_mat = None
-		self.month_hist = None
+		self.leader = None
+		self.follower = None
 
-	def plot_pricing_month_hist(self):
-		if(self.month_hist == None): self.get_pricing
+	def plot_pricing_month_hist(self, from_date=None, to_date=None):
+
+		if(from_date==None): from_date = INIT_DATE
+		if(to_date==None): to_date = END_DATE
+
+		year = from_date.year
+		month = from_date.month
+		to_year = to_date.year
+		to_month = to_date.month
+
+		month_hist = []
+		xTickMarks = []
+		while(year<=to_year and month<=to_month):
+			CURSOR.execute("SELECT COUNT(*) FROM gas_station_information_history"+
+				" WHERE " + STDI + " AND " + PG_MONTH + " AND " + PG_YEAR % (self.id, year, month))
+			month_hist.append(CURSOR.fetchone()[0])
+			mstr = '%d. %d' % (month, year)
+			xTickMarks.append(mstr)
+			if(month/12==1): year+=1
+			month = month%12 + 1 
+
 		fig = plt.figure()
 		ax = fig.add_subplot(111)
 
 		## necessary variables
-		ind = np.arange(len(self.month_hist))
+		ind = np.arange(len(month_hist))
 		width = 0.35
 
 		## the bars
-		rects1 = ax.bar(ind, self.month_hist[:,1], width, color='red')
+		rects1 = ax.bar(ind, month_hist[:,1], width, color='red')
 
 		# axes and labels
 		ax.set_xlim(-width,len(ind)+width)
@@ -174,12 +197,7 @@ class Station(object):
 		ax.set_ylabel('pricings')
 		ax.set_xlabel('month')
 		ax.set_title('pricings month hist')
-		xTickMarks = []
-		for i in range(0,len(self.month_hist)):
-			m = ((5+i)%12)+1
-			y = 14+(5+i)/12
-			mstr = '%d. %d' % (m, y)
-			xTickMarks.append(mstr)
+
 		ax.set_xticks(ind + width/2)
 		xtickNames = ax.set_xticklabels(xTickMarks)
 		plt.setp(xtickNames, rotation=60, fontsize=8)
@@ -191,7 +209,7 @@ class Station(object):
 		if(not(isdir(filedir))): os.makedirs(filedir)
 		fig.savefig(join(filedir, ("month_hist")))
 
-	def plot_pricing_time_histogram(self, d=None, from_date=None, to_date=None):
+	def plot_pricing_hour_hist(self, d=None, from_date=None, to_date=None):
 		""" Get all price adaptions in the selected interval und and count 
 		the ocCURSORances for each hour.
 		"""
@@ -238,65 +256,6 @@ class Station(object):
 		if(not(isdir(filedir))): os.makedirs(filedir)
 		fig.savefig(join(filedir,"time_hist_" + d))
 		# plt.show()
-
-	def get_pricing(self):
-
-		CURSOR.execute("SELECT * FROM gas_station_information_history"+
-			" WHERE " + STDI + " ORDER BY date", (self.id, ))
-
-		cnt = CURSOR.rowcount-1
-		self.pricing_mat = np.zeros((cnt,len(pa2i)))
-
-		month_idx = np.ones((1,2))
-
-		cur_month = INIT_DATE.month
-		idx = 0
-
-		prev_price = CURSOR.fetchone()
-		for i in range(0,cnt):
-			fol_price=CURSOR.fetchone()
-
-			self.pricing_mat[i,pa2i['id']] = fol_price[0]
-			c_date = fol_price[5].date()
-			self.pricing_mat[i,pa2i['date']] = (c_date - INIT_DATE).days
-			c_time = fol_price[5].time()
-			self.pricing_mat[i,pa2i['dow']] = fol_price[5].weekday()
-			self.pricing_mat[i,pa2i['month']] = fol_price[5].date().month
-			self.pricing_mat[i,pa2i['time']] = c_time.hour*3600 + c_time.minute*60 + c_time.second
-			c_changed = fol_price[6]
-			self.pricing_mat[i,pa2i['alt']] = c_changed
-			c_diesel = fol_price[4]
-			self.pricing_mat[i,pa2i['diesel']] = float(c_diesel)/10
-			c_e5 = fol_price[2]
-			self.pricing_mat[i,pa2i['e5']] = float(c_e5)/10
-			c_e10 = fol_price[3]
-			self.pricing_mat[i,pa2i['e10']] = float(c_e5)/10
-
-			d_dif = (c_diesel - prev_price[4])/10
-			self.pricing_mat[i,pa2i['d_diesel']] = d_dif
-			e5_dif = (c_e5 - prev_price[2])/10
-			self.pricing_mat[i,pa2i['d_e5']] = e5_dif
-			e10_dif = (c_e10 - prev_price[3])/10
-			self.pricing_mat[i,pa2i['d_e10']] = e10_dif
-
-			prev_price = fol_price
-
-			if(c_date.month!=cur_month):
-				month_idx[idx,1] = i-month_idx[idx,0]
-				month_idx = np.append(month_idx,[[i,0]],axis=0)
-				idx+=1
-				cur_month = c_date.month
-
-		month_idx[idx,1] = cnt-month_idx[idx,0]
-		self.month_hist = month_idx
-
-	def get_raise_idc(self):
-		if(self.pricing_mat==None): self.get_pricing()
-		ind_d = [self.pricing_mat[:,pa2i['d_diesel']]>0] 
-		ind_5 = [self.pricing_mat[:,pa2i['d_e5']]>0]
-		ind_10 = [self.pricing_mat[:,pa2i['d_e10']]>0]
-		raise_idx = [a|b|c for (a,b,c) in zip(ind_d,ind_5,ind_10)]
-		return raise_idx
 
 	def print_raises(self):
 		textwidth = 68
@@ -395,12 +354,9 @@ class Station(object):
 		raises = self.pricing_mat[raise_idx[0],:]
 		for r in raises:
 			
-			d_str = "%s"% r[pa2i['diesel']] + (bcolors.OKGREEN + " %3d" + bcolors.ENDC) %r[pa2i['d_diesel']]
-			e5_str = "%s"% r[pa2i['e5']] + (bcolors.OKGREEN + " %3d" + bcolors.ENDC) %r[pa2i['d_e5']]
-			e10_str = "%s"% r[pa2i['e10']] + (bcolors.OKGREEN + " %3d" + bcolors.ENDC) %r[pa2i['d_e10']]
-			f_d_str = "%s"% r[pa2i['diesel']] + (" %3d") %r[pa2i['d_diesel']]
-			f_e5_str = "%s"% r[pa2i['e5']] + (" %3d") %r[pa2i['d_e5']]
-			f_e10_str = "%s"% r[pa2i['e10']] + (" %3d") %r[pa2i['d_e10']]
+			d_str = "%s"% r[pa2i['diesel']] + (" %3d") %r[pa2i['d_diesel']]
+			e5_str = "%s"% r[pa2i['e5']] + (" %3d") %r[pa2i['d_e5']]
+			e10_str = "%s"% r[pa2i['e10']] + (" %3d") %r[pa2i['d_e10']]
 			date = INIT_DATE+timedelta(r[pa2i['date']])
 			time = get_timestamp_from_sec(r[pa2i['time']])
 			row = "%s | %s | %s | %s | %s | %s" % (str(date).center(10),
@@ -409,79 +365,13 @@ class Station(object):
                 d_str,
                 e5_str,
                 e10_str)
-			f_row = "%s | %s | %s | %s | %s | %s\n" % (str(date).center(10),
-				str(time).center(10),
-				(("%" + str(6) + "d") % r[pa2i['alt']]),
-                f_d_str,
-                f_e5_str,
-                f_e10_str)
+			f_row = row + '\n'
 			# print(row)
 			f.write(f_row)
 
 		f.close()
 
-	def get_neighbors(self, init_range=5, min=2, max=20):
-		""" Compute alle distances and take those located in a certain range
-		or an certain amont of the closest ones if there are too many around.
-		"""
-		self.neighbors = []
-		lat1 = radians(self.geo_pos['lat'])
-		lng1 = radians(self.geo_pos['lng'])
-		R = 6371000
-
-		for station in STATION_DICT.values():
-			lat2 = radians(station.geo_pos['lat'])
-			lng2 = radians(station.geo_pos['lng'])
-			# earth radisu in meter
-			dlng = lng2 - lng1
-			dlat = lat2 - lat1
-			a = (sin(dlat/2))**2 + cos(lat1) * cos(lat2) * (sin(dlng/2))**2
-			c = 2 * atan2( sqrt(a), sqrt(1-a) )
-			d = R * c
-			d_in_km = float(d)/1000
-			if(d_in_km<init_range):
-				self.neighbors.append((station.id, d_in_km))
-
-		self.neighbors = sorted(self.neighbors, key=operator.itemgetter(1))
-		del self.neighbors[0]
-		if(len(self.neighbors)>max):
-			self.neighbors = self.neighbors[0:max]
-		if(len(self.neighbors)<min):
-			self.get_neighbors(init_range+1, min, max)
-
-	def print_neighbors(self):
-		if(self.neighbors==None): self.get_neighbors(STATION_DICT)
-		textwidth = 120
-
-		print((bcolors.BOLD + bcolors.OKBLUE +
-			'Selected station: %s %s at %s %s in %s %s\n'\
-			%(self.name, self.id, self.address['street'], self.address['house_number'],
-				self.address['post_code'], self.address['place'])).center(textwidth)+bcolors.ENDC)
-		max_dist = int(self.neighbors[len(self.neighbors)-1][1])+1
-		print((bcolors.BOLD + 'Gas stations in range of %dkm\n' % max_dist).center(textwidth) + bcolors.ENDC)
-
-		header = "%s | %s | %s | %s | %s" % ("name".center(40),
-                "brand".center(10),
-                "id".center(36),
-                "dist".center(5),
-                "address".center(10))
-		print(header)
-		print(("-" * textwidth))
-
-		for neighbor in self.neighbors:
-			station_id = neighbor[0]
-			station_dist = neighbor[1]
-			station = STATION_DICT[station_id]
-			st_addr = station.address['street'] + " " + station.address['house_number'] + \
-			" " + station.address['post_code'] + " " + station.address['place']
-			row = "%s | %s | %s | %1.3f | %s" % (station.name.center(40),
-                station.brand.center(10),
-                station.id,
-                station_dist,
-                st_addr)
-			print(row)
-
-	def print_changes_per_time_category(self, m=None, d=None, t=None):
+	def print_pricings_per_time_category(self, m=None, d=None, t=None):
 		time_str = " WHERE " + STDI
 		if(m!=None): time_str += (" AND " + MONTH % m)
 		if(d!=None): time_str += (" AND " + day[d])
@@ -525,25 +415,177 @@ class Station(object):
                 (("%" + str(6) + "d") % c_e10))
 			print(row)
 
-	def get_follower_and_leader(self):
+	def pricing_to_string(self, index):
+		r  = self.pricing_mat[index]
+		d_str = "%s"% r[pa2i['diesel']]
+		d_dif = r[pa2i['d_diesel']]
+		if(d_dif>0):
+			d_str += " +%3d" % d_dif
+		else:
+			d_str += " %3d" % d_dif
+
+		e5_str = "%s"% r[pa2i['e5']]
+		e5_dif = r[pa2i['d_e5']]
+		if(e5_dif>0):
+			e5_str += " +%3d" % e5_dif
+		else:
+			e5_str += " %3d" % e5_dif
+
+		e10_str = "%s"% r[pa2i['e10']]
+		e10_dif = r[pa2i['d_e10']]
+		if(e10_dif>0):
+			e10_str += " +%3d" % e10_dif
+		else:
+			e10_str += " %3d" % e10_dif
+
+		date = INIT_DATE+timedelta(r[pa2i['date']])
+		time = get_timestamp_from_sec(r[pa2i['time']])
+
+		row = "%s | %s | %s | %s | %s | %s" % (str(date).center(10),
+			str(time).center(10),
+			(("%" + str(6) + "d") % r[pa2i['alt']]),
+            d_str,
+            e5_str,
+            e10_str)
+
+		return row
+
+	def get_neighbors(self, init_range=5, min=2, max=20):
+		""" Compute alle distances and take those located in a certain range
+		or an certain amont of the closest ones if there are too many around.
+		"""
+		self.neighbors = []
+		lat1 = radians(self.geo_pos['lat'])
+		lng1 = radians(self.geo_pos['lng'])
+		R = 6371000
+
+		for station in STATION_DICT.values():
+			lat2 = radians(station.geo_pos['lat'])
+			lng2 = radians(station.geo_pos['lng'])
+			# earth radisu in meter
+			dlng = lng2 - lng1
+			dlat = lat2 - lat1
+			a = (sin(dlat/2))**2 + cos(lat1) * cos(lat2) * (sin(dlng/2))**2
+			c = 2 * atan2( sqrt(a), sqrt(1-a) )
+			d = R * c
+			d_in_km = float(d)/1000
+			if(d_in_km<init_range):
+				self.neighbors.append((station.id, d_in_km))
+
+		self.neighbors = sorted(self.neighbors, key=operator.itemgetter(1))
+		del self.neighbors[0]
+		if(len(self.neighbors)>max):
+			self.neighbors = self.neighbors[0:max]
+		if(len(self.neighbors)<min):
+			self.get_neighbors(init_range+1, min, max)
+
+	def print_neighbors(self):
+		if(self.neighbors==None): self.get_neighbors(STATION_DICT)
+
+		station_str = station_to_string(self.id)
+
+		print(bcolors.BOLD + bcolors.OKBLUE + 'Neighbors of station.'.center(len(station_str)) + bcolors.ENDC)
+		print(bcolors.BOLD + bcolors.OKBLUE + station_str + '\n' + bcolors.ENDC)
+
+		header = "%s | " % "DIST".center(6)
+		header += get_station_header()
+		print(header)
+		print(("-" * len(header)))
+
+		for neighbor in self.neighbors:
+			station_id = neighbor[0]
+			station_dist = neighbor[1]
+			station_str = station_to_string(station_id)
+
+			row = "%1.4f | "% station_dist
+			row += station_to_string(station_id)
+			print(row)
+
+		print("\n")
+
+	def get_pricing(self, from_date=None, to_date=None):
+
+		if(from_date==None): from_date = INIT_DATE
+		if(to_date==None): to_date = END_DATE
+		CURSOR.execute("SELECT * FROM gas_station_information_history"+
+			" WHERE " + STDI + " AND " + D_INT + " ORDER BY date", (self.id, from_date, to_date))
+
+		cnt = CURSOR.rowcount-1
+		self.pricing_mat = np.zeros((cnt,len(pa2i)))
+
+		month_idx = np.ones((1,2))
+
+		cur_month = from_date.month
+		idx = 0
+
+		prev_price = CURSOR.fetchone()
+		for i in range(0,cnt):
+			fol_price=CURSOR.fetchone()
+
+			self.pricing_mat[i,pa2i['id']] = fol_price[0]
+			c_date = fol_price[5].date()
+			self.pricing_mat[i,pa2i['date']] = (c_date - INIT_DATE).days
+			c_time = fol_price[5].time()
+			self.pricing_mat[i,pa2i['dow']] = fol_price[5].weekday()
+			self.pricing_mat[i,pa2i['month']] = fol_price[5].date().month
+			self.pricing_mat[i,pa2i['time']] = c_time.hour*3600 + c_time.minute*60 + c_time.second
+			c_changed = fol_price[6]
+			self.pricing_mat[i,pa2i['alt']] = c_changed
+			c_diesel = fol_price[4]
+			self.pricing_mat[i,pa2i['diesel']] = float(c_diesel)/10
+			c_e5 = fol_price[2]
+			self.pricing_mat[i,pa2i['e5']] = float(c_e5)/10
+			c_e10 = fol_price[3]
+			self.pricing_mat[i,pa2i['e10']] = float(c_e10)/10
+
+			d_dif = (c_diesel - prev_price[4])/10
+			self.pricing_mat[i,pa2i['d_diesel']] = d_dif
+			e5_dif = (c_e5 - prev_price[2])/10
+			self.pricing_mat[i,pa2i['d_e5']] = e5_dif
+			e10_dif = (c_e10 - prev_price[3])/10
+			self.pricing_mat[i,pa2i['d_e10']] = e10_dif
+
+			prev_price = fol_price
+
+			if(c_date.month!=cur_month):
+				month_idx[idx,1] = i-month_idx[idx,0]
+				month_idx = np.append(month_idx,[[i,0]],axis=0)
+				idx+=1
+				cur_month = c_date.month
+
+		month_idx[idx,1] = cnt-month_idx[idx,0]
+		self.month_hist = month_idx
+
+	def get_raise_idc(self):
+		if(self.pricing_mat==None): self.get_pricing()
+		raise_idc = []
+		for i in range(0,len(self.pricing_mat)):
+			if(self.pricing_mat[i,pa2i['d_diesel']]>0 or
+				self.pricing_mat[i,pa2i['d_e5']]>0 or
+				self.pricing_mat[i,pa2i['d_e10']]>0):
+				raise_idc.append(i)
+		return raise_idc
+
+	def get_neighbor_related_pricings(self, t_int):
 		""" Go through all own price adjustments and count for each of the
 		surrounding stations the number of adjustments that ocCURSOR in a time
 		window around the own adjustments (include average reaction time).
 		"""
 		print("Getting follower and leader")
+		secs_p_hour = 86400
 		# get neighbors if necessary
 		if(self.neighbors==None): self.get_neighbors()
 		# store follower and leader indexes as tupels (own index, neigh index)
-		# a timestamp is a folloer if it is not more than 30min after the own one
-		follower = []
-		# a timestamp is a leader if it is not more than 30min before the own one
-		leader = []
+		# a timestamp is a folloer if it is not more than t_int seconds after the own one
+		self.follower = {}
+		# a timestamp is a leader if it is not more than t_int seconds before the own one
+		self.leader = {}
 		# for each neighbor get pricing and make space for f and l
 		for neigh in self.neighbors:
 			STATION_DICT[neigh[0]].get_pricing()
-			print("Got pricing of neigh: %s" % STATION_DICT[neigh[0]].name)
-			follower.append([])
-			leader.append([])
+			# print("Got pricing of neigh: %s" % STATION_DICT[neigh[0]].name)
+			self.follower[neigh[0]] = []
+			self.leader[neigh[0]] = []
 
 		# store the index for each neighbor
 		neigh_pricing_idc = np.zeros((len(self.neighbors), ))
@@ -555,108 +597,389 @@ class Station(object):
 			# go through all neighbors
 			for j in range(0,len(neigh_pricing_idc)):
 				# get neighbor object and index
-				neigh = STATION_DICT[self.neighbors[j][0]]
+				neigh_id = self.neighbors[j][0]
+				neigh = STATION_DICT[neigh_id]
 				index = neigh_pricing_idc[j]
 				dif = 0
 				# go up through neighbor pricings until it time dif is bigger than +30 min
-				while(dif<1800 and index+1<len(neigh.pricing_mat)):
+				while(dif<t_int and index+1<len(neigh.pricing_mat)):
 					# get neighbor day and time val
 					neigh_d = neigh.pricing_mat[index,pa2i['date']]
 					neigh_s = neigh.pricing_mat[index,pa2i['time']]
 					# compute dif and increase index
-					dif = 86400*(neigh_d-own_d)+(neigh_s-own_s)
+					dif = secs_p_hour*(neigh_d-own_d)+(neigh_s-own_s)
 					index+=1
 				# go down to the last in index in the below 30min range might be even below -30
 				index = index-1
 				# set this as new index for following iterations
 				neigh_pricing_idc[j] = index
 				# go down from this index and add relevant pricings as f por l until we break lower bound
-				while(dif>-1800 and index>=0):
+				while(dif>-t_int and index>=0):
 					# get neighbor day and time val and compute dif
 					neigh_d = neigh.pricing_mat[index,pa2i['date']]
 					neigh_s = neigh.pricing_mat[index,pa2i['time']]
-					dif = 86400*(neigh_d-own_d)+(neigh_s-own_s)
+					dif = secs_p_hour*(neigh_d-own_d)+(neigh_s-own_s)
 					# if it is in the scope -30 to +30
-					if(dif>-1800 and dif<1800):
+					if(dif>-t_int and dif<t_int):
 						# and positive its a follower
 						if(dif>0):
-							follower[j].append((i,index))
+							self.follower[neigh_id].append((i,index))
 						# otherwise a leader
 						else:
-							leader[j].append((i,index))
+							self.leader[neigh_id].append((i,index))
 						# same time dont know yet
 					index-=1
-		return follower, leader
-
-		# # get all own pricings
-		# CURSOR.execute("SELECT * from gas_station_information_history WHERE stid=%s ORDER BY date", (self.id, ))
-		# pricings = CURSOR.fetchall()
-
-		# # dict of neighbors - each neighbor has a list of pricing tuples
-		# # each tuple contains the own pricing and the related pricing of the neighbor
-		# # the pricing should contain all data + day val + time val + amounts changed
-		# # use the pricing matrices and save indices in list
-
-		# related_pricings = {entry[0]:[] for entry in self.neighbors}
-		# prev_price = CURSOR.fetchone()
-
-		# for pricing in pricings:
-		# 	lower_bound = pricing[0] - timedelta(minutes=30)
-		# 	upper_bound = pricing[0] + timedelta(minutes=30)
-		# 	for neigh in self.neighbors:
-		# 		n_id = neigh[0]
-		# 		CURSOR.execute("SELECT * from gas_station_information_history WHERE stid = %s" +
-		# 			" AND date > TIMESTAMP %s AND date < TIMESTAMP %s", (n_id, str(lower_bound), str(upper_bound)))
-		# 		time=CURSOR.fetchone()
-
-
-
-		# 	# 	if(not(time==None)):
-		# 	# 		relations[i,0] += 1
-		# 	# 		c = time[0] - pricing[0]
-		# 	# 		dif= (c.days * 86400 + c.seconds)
-		# 	# 		if(dif>0):
-		# 	# 			compare[i] = dif-1800
-		# 	# 		elif(dif<0):
-		# 	# 			compare[i] = dif+1800
-		# 	# 		else:
-		# 	# 			compare[i] = 0
-		# 	# 			relations[i,13] += 1
-		# 	# 	else:
-		# 	# 		compare[i] = 0
-
-		# 	# idc = sorted(range(len(compare)), key=lambda k: compare[k])
-		# 	# if(compare[idc[0]]<0):
-		# 	# 	relations[idc[0],int((compare[idc[0]]+1800)/300)+7] += 1
-		# 	# if(compare[idc[len(compare)-1]]>0):
-		# 	# 	relations[idc[len(compare)-1],int((compare[idc[len(compare)-1]]-1800)/300)+6] += 1
 
 	def print_follower_and_leader(self):
-		follower,leader = self.get_follower_and_leader()
-		neigh = STATION_DICT[self.neighbors[0][0]]
-		for (own_idx,neigh_idx) in leader[0]:
+		self.get_neighbor_related_pricings(3600)
+
+		filedir = join(ANALYSIS_PATH, self.name)
+		if(not(isdir(filedir))): os.makedirs(filedir)
+
+		print(len(self.pricing_mat))
+
+		for i in range(0,len(self.leader)):
+			neigh_id = self.neighbors[i][0]
+
+			neigh = STATION_DICT[neigh_id]
+			# i_str = 'Neighboring station:'
+			# print(i_str.center(40))
+			s_str = '%s %s' %(neigh.name, neigh.id)
+			print(s_str.center(40))
+			a_str = '%s %s %s %s' %(neigh.address['street'], neigh.address['house_number'],
+					neigh.address['post_code'], neigh.address['place'])
+			print(a_str.center(40))
+
+			self.print_leader(self.leader[neigh_id], neigh)
+			self.print_follower(self.follower[neigh_id], neigh)
+
+	def print_leader(self, leader, neigh):
+
+		d_cnt = 0
+		e10_cnt = 0
+		e5_cnt = 0
+		all_cnt = 0
+		all_true = True
+
+		# f = open(join(filedir, "drop_history_" + days + ".txt"),'w+')
+
+		for (own_idx,neigh_idx) in leader:
+			all_true = True
+			# if(self.pricing_mat[own_idx,pa2i['dow']]>4):
 			d_dif_pre = self.pricing_mat[own_idx-1,pa2i['diesel']] - neigh.pricing_mat[neigh_idx-1,pa2i['diesel']]
+			d_dif_bet = self.pricing_mat[own_idx-1,pa2i['diesel']] - neigh.pricing_mat[neigh_idx,pa2i['diesel']]
 			d_dif_post = self.pricing_mat[own_idx,pa2i['diesel']] - neigh.pricing_mat[neigh_idx,pa2i['diesel']]
+			if(d_dif_pre!=d_dif_bet and d_dif_pre==d_dif_post): d_cnt+=1
+			else: all_true= False
+
 			e5_dif_pre  = self.pricing_mat[own_idx-1,pa2i['e5']] - neigh.pricing_mat[neigh_idx-1,pa2i['e5']]
+			e5_dif_bet = self.pricing_mat[own_idx-1,pa2i['e5']] - neigh.pricing_mat[neigh_idx,pa2i['e5']]
 			e5_dif_post = self.pricing_mat[own_idx,pa2i['e5']] - neigh.pricing_mat[neigh_idx,pa2i['e5']]
+			if(e5_dif_pre!=e5_dif_bet and e5_dif_pre==e5_dif_post): e5_cnt+=1
+			else: all_true= False
+
 			e10_dif_pre = self.pricing_mat[own_idx-1,pa2i['e10']] - neigh.pricing_mat[neigh_idx-1,pa2i['e10']]
+			e10_dif_bet = self.pricing_mat[own_idx-1,pa2i['e10']] - neigh.pricing_mat[neigh_idx,pa2i['e10']]
 			e10_dif_post = self.pricing_mat[own_idx,pa2i['e10']] - neigh.pricing_mat[neigh_idx,pa2i['e10']]
+			if(e10_dif_pre!=e10_dif_bet and e10_dif_pre==e10_dif_post): e10_cnt+=1
+			else: all_true= False
+
+			if(all_true): all_cnt+=1
+
 			own_d = self.pricing_mat[own_idx,pa2i['date']]
 			own_s = self.pricing_mat[own_idx,pa2i['time']]
+			own_tst = get_timestamp(own_d, own_s)
+
 			neigh_d = neigh.pricing_mat[neigh_idx,pa2i['date']]
 			neigh_s = neigh.pricing_mat[neigh_idx,pa2i['time']]
-			own_tst = get_timestamp(own_d, own_s)
 			neigh_tst = get_timestamp(neigh_d, neigh_s)
-			dif = 86400*(neigh_d-own_d)+(neigh_s-own_s)
-			dif_str = "%5d" % dif
 
-			row = "%s | %s | %5d | %2d | %2d | %2d | %2d | %2d | %2d" % (str(own_tst),
-				str(neigh_tst),dif, d_dif_pre, d_dif_post, e5_dif_pre, e5_dif_post,
-				e10_dif_pre, e10_dif_post)
-			print(row)
+			# t_dif_s = int(86400*(own_d-neigh_d)+(own_s-neigh_s))
+			# t_dif_str = "%2d:%2d" % (t_dif_s/60, t_dif_s%60)
+
+			# pre_str = "%s | %2d | %2d | %2d |" % (str("pre " + str(neigh_tst) + " :").center(40),
+			# 	d_dif_pre, e10_dif_pre, e5_dif_pre)
+			# print(pre_str)
+
+			# bet_str = "%s | %2d | %2d | %2d |" % (str("timedif =  " + t_dif_str + " :").center(40),
+			# 	d_dif_bet, e10_dif_bet, e5_dif_bet)
+			# print(bet_str)
+
+			# post_str = "%s | %2d | %2d | %2d |" % (str("post " + str(own_tst) + " :").center(40),
+			# 	d_dif_post, e10_dif_post, e5_dif_post)
+			# print(post_str)
+			# print("")
+
+		print("| %5d | %5d | %5d | %5d | %5d |" % (len(leader),
+			all_cnt, d_cnt, e10_cnt, e5_cnt))
+		print("")
+
+	def print_follower(self, follower, neigh):
+
+		d_cnt = 0
+		e10_cnt = 0
+		e5_cnt = 0
+		all_cnt = 0
+		all_true = True
+
+		# f = open(join(filedir, "drop_history_" + days + ".txt"),'w+')
+
+		for (own_idx,neigh_idx) in follower:
+			all_true = True
+			# if(self.pricing_mat[own_idx,pa2i['dow']]>4):
+			d_dif_pre = self.pricing_mat[own_idx-1,pa2i['diesel']] - neigh.pricing_mat[neigh_idx-1,pa2i['diesel']]
+			d_dif_bet = self.pricing_mat[own_idx-1,pa2i['diesel']] - neigh.pricing_mat[neigh_idx,pa2i['diesel']]
+			d_dif_post = self.pricing_mat[own_idx,pa2i['diesel']] - neigh.pricing_mat[neigh_idx,pa2i['diesel']]
+			if(d_dif_pre!=d_dif_bet and d_dif_pre==d_dif_post): d_cnt+=1
+			else: all_true= False
+
+			e5_dif_pre  = self.pricing_mat[own_idx-1,pa2i['e5']] - neigh.pricing_mat[neigh_idx-1,pa2i['e5']]
+			e5_dif_bet = self.pricing_mat[own_idx-1,pa2i['e5']] - neigh.pricing_mat[neigh_idx,pa2i['e5']]
+			e5_dif_post = self.pricing_mat[own_idx,pa2i['e5']] - neigh.pricing_mat[neigh_idx,pa2i['e5']]
+			if(e5_dif_pre!=e5_dif_bet and e5_dif_pre==e5_dif_post): e5_cnt+=1
+			else: all_true= False
+
+			e10_dif_pre = self.pricing_mat[own_idx-1,pa2i['e10']] - neigh.pricing_mat[neigh_idx-1,pa2i['e10']]
+			e10_dif_bet = self.pricing_mat[own_idx-1,pa2i['e10']] - neigh.pricing_mat[neigh_idx,pa2i['e10']]
+			e10_dif_post = self.pricing_mat[own_idx,pa2i['e10']] - neigh.pricing_mat[neigh_idx,pa2i['e10']]
+			if(e10_dif_pre!=e10_dif_bet and e10_dif_pre==e10_dif_post): e10_cnt+=1
+			else: all_true= False
+
+			if(all_true): all_cnt+=1
+
+			own_d = self.pricing_mat[own_idx,pa2i['date']]
+			own_s = self.pricing_mat[own_idx,pa2i['time']]
+			own_tst = get_timestamp(own_d, own_s)
+
+			neigh_d = neigh.pricing_mat[neigh_idx,pa2i['date']]
+			neigh_s = neigh.pricing_mat[neigh_idx,pa2i['time']]
+			neigh_tst = get_timestamp(neigh_d, neigh_s)
+
+			# t_dif_s = int(86400*(own_d-neigh_d)+(own_s-neigh_s))
+			# t_dif_str = "%2d:%2d" % (t_dif_s/60, t_dif_s%60)
+
+			# pre_str = "%s | %2d | %2d | %2d |" % (str("pre " + str(neigh_tst) + " :").center(40),
+			# 	d_dif_pre, e10_dif_pre, e5_dif_pre)
+			# print(pre_str)
+
+			# bet_str = "%s | %2d | %2d | %2d |" % (str("timedif =  " + t_dif_str + " :").center(40),
+			# 	d_dif_bet, e10_dif_bet, e5_dif_bet)
+			# print(bet_str)
+
+			# post_str = "%s | %2d | %2d | %2d |" % (str("post " + str(own_tst) + " :").center(40),
+			# 	d_dif_post, e10_dif_post, e5_dif_post)
+			# print(post_str)
+			# print("")
+
+		print("| %5d | %5d | %5d | %5d | %5d |" % (len(follower),
+			all_cnt, d_cnt, e10_cnt, e5_cnt))
+		print("")
 
 	def get_concrete_rule(self):
 		pass 
+
+	def split_at(self, data_idc, station_id, split_criterium):
+
+
+		'''
+		CAN BE IMPROVED DICTS RATHER THAN LISTS AND JUST ITERATING ONCE OVER 
+		ALL INDICES !!!!
+		'''
+
+
+		data = STATION_DICT[station_id].pricing_mat
+		data_split = [data[i] for i in data_idc]
+		try:
+			# split data between weekend and weekday
+			if(split_criterium=="we"):
+				we,wd = [],[]
+				for idx in data_idc:
+					if(data[idx][pa2i['dow']]>=5):
+						we.append(idx)
+					else:
+						wd.append(idx)
+				return [we,wd], ['weekend', 'weekday']
+
+			# split data between different days of the week
+			elif(split_criterium=="dow"):
+				dow_set = set(data_split[:,pa2i['dow']])
+				splits = []
+				labels = []
+				for dow in dow_set:
+					labels.append('dow ' + dow)
+					splits.append([idx for idx in data_idc if data[idx][pa2i['dow']]==dow])
+				return splits, dow_set
+
+			# split data between different times of the day (morning, afternoon, night)
+			elif(split_criterium=="tod"):
+				m,a,n = [],[],[]
+				for idx in data_idc:
+					hour = int(data[idx][pa2i['time']]/3600)
+					if(hour>=6 and hour<12):
+						m.append(idx)
+					elif(hour>=12 and hour<22):
+						a.append(idx)
+					else:
+						n.append(idx)
+				return [m,a,n], ['morning', 'afternoon', 'night']
+
+			# split data between the different hours of the day
+			elif(split_criterium=="hour"):
+				hour_set = set(map(int, data[:,pa2i['time']]/3600))
+				splits = []
+				labels = []
+				for hour in hour_set:
+					labels.append('hour ' + hour)
+					splits.append([idx for idx in data_idc if int(data[idx][pa2i['time']]/3600)==hour])
+				return splits, labels
+			else:
+				raise ValueError("Wrong split criterium")
+
+		except ValueError:
+			traceback.print_exc()
+			print("You used %s as split criterium. Please use we, dow, tod or hour only!" % split_criterium)
+			sys.exit(1)
+
+	def explore_statistics_tree(self, data_idc, neigh_id , split_criteria, node_label='all'):
+
+		leader = self.leader[neigh_id] #(own_idx, leader_idx)
+		matches = self.get_matching_leader_subset(data_idc, leader)
+		mean_r_time, std_r_time = self.get_mean_and_dev_r_time(matches, neigh_id) 
+		all_r, prop_r, modes, counts = self.get_price_dif_stats(matches, neigh_id)
+		# follower_stats = self.get_follower_stats(data, neigh_id)
+
+		# append statsplot to tree using ETE?
+		# plot histogram
+		self.print_leader_stats(node_label, len(data_idc), len(matches), mean_r_time, std_r_time, all_r, prop_r, modes, counts)
+		# self.print_follower_stats(follower_stats)
+		if(len(split_criteria)>0):
+			print(split_criteria)
+			c_copy = split_criteria[:]
+			crit = c_copy.pop()
+			data_splits, labels = self.split_at(data_idc, neigh_id, crit)
+			for i in range(0,len(data_splits)):
+				self.explore_statistics_tree(data_splits[i], neigh_id, c_copy[:], node_label=labels[i])
+
+	def get_mean_and_dev_r_time(self, leader, neigh_id):
+		neigh = STATION_DICT[neigh_id]
+		time_dif = np.zeros((len(leader), ))
+		for i in range(0,len(leader)):
+			o = leader[i][0]
+			l = leader[i][1]
+			own_d = self.pricing_mat[o,pa2i['date']]
+			own_s = self.pricing_mat[o,pa2i['time']]
+			neigh_d = neigh.pricing_mat[l,pa2i['date']]
+			neigh_s = neigh.pricing_mat[l,pa2i['time']]
+			time_dif[i] = SECS_PER_HOUR*(neigh_d-own_d)+(neigh_s-own_s)
+		
+		return np.mean(time_dif), np.std(time_dif)
+
+	def get_price_dif_stats(self, leader, neigh_id):
+		neigh = STATION_DICT[neigh_id]
+		price_dif = np.zeros((len(leader), 9))
+
+		d_cnt = 0
+		e10_cnt = 0
+		e5_cnt = 0
+		all_cnt = 0
+		prop_cnt = 0
+		all_true = True
+
+		for i in range(0,len(leader)):
+
+			o = leader[i][0]
+			l = leader[i][1]
+			o_alt = self.pricing_mat[o,pa2i['alt']]
+			l_alt = neigh.pricing_mat[l,pa2i['alt']]
+
+			reset_val = 0
+			all_true = True
+
+			price_dif[i,0] = self.pricing_mat[o-1,pa2i['diesel']] - neigh.pricing_mat[l-1,pa2i['diesel']]
+			price_dif[i,1] = self.pricing_mat[o-1,pa2i['diesel']] - neigh.pricing_mat[l,pa2i['diesel']]
+			price_dif[i,2] = self.pricing_mat[o,pa2i['diesel']] - neigh.pricing_mat[l,pa2i['diesel']]
+			if(price_dif[i,0]!=price_dif[i,1] and price_dif[i,0]==price_dif[i,2]):
+				reset_val += 1
+				d_cnt+=1
+			else: all_true= False
+
+			price_dif[i,3] = self.pricing_mat[o-1,pa2i['e5']] - neigh.pricing_mat[l-1,pa2i['e5']]
+			price_dif[i,4] = self.pricing_mat[o-1,pa2i['e5']] - neigh.pricing_mat[l,pa2i['e5']]
+			price_dif[i,5] = self.pricing_mat[o,pa2i['e5']] - neigh.pricing_mat[l,pa2i['e5']]
+			if(price_dif[i,3]!=price_dif[i,4] and price_dif[i,3]==price_dif[i,5]):
+				reset_val += 4
+				e5_cnt+=1
+			else: all_true= False
+
+			price_dif[i,6] = self.pricing_mat[o-1,pa2i['e10']] - neigh.pricing_mat[l-1,pa2i['e10']]
+			price_dif[i,7] = self.pricing_mat[o-1,pa2i['e10']] - neigh.pricing_mat[l,pa2i['e10']]
+			price_dif[i,8] = self.pricing_mat[o,pa2i['e10']] - neigh.pricing_mat[l,pa2i['e10']]
+			if(price_dif[i,6]!=price_dif[i,7] and price_dif[i,6]==price_dif[i,8]):
+				reset_val += 16
+				e10_cnt+=1
+			else: all_true= False
+
+			if(all_true):
+				all_cnt+=1
+			elif(not(all_true) and o_alt==reset_val):
+				prop_cnt += 1
+
+		m = stats.mode(price_dif)
+
+		return all_cnt, prop_cnt, m[0], m[1]
+		
+	def get_matching_leader_subset(self, data_idc_sub, leader):
+		matches = []
+		d_idx = 0
+		l_idx = 0 
+		while(d_idx < len(data_idc_sub) and l_idx < len(leader)):
+			if(data_idc_sub[d_idx] == leader[l_idx][1]):
+				matches.append(leader[l_idx])
+				d_idx += 1
+				l_idx += 1
+			elif(data_idc_sub[d_idx] < leader[l_idx][1]):
+				d_idx += 1
+			else:
+				l_idx += 1
+		return matches
+
+	def print_leader_stats(self, node_label, data_sub_cnt, match_cnt, mean_r_time, std_r_time, all_res, prop_res, modes, counts):
+
+		print(node_label)
+		if(data_sub_cnt==0 or match_cnt==0):
+			print('no matches in thís intervall!!!')
+		else:
+			print('contains %d pricings with %d leader matches, making %f' % (data_sub_cnt, match_cnt, float(match_cnt)/data_sub_cnt))
+			print('reacted in an average of %f with a std of %f' % (mean_r_time, std_r_time))
+			print('the own pricing resettet %d times all prices making %f' % (all_res, float(all_res)/match_cnt))
+			print('the own pricing resettet %d times the appropriate prices making %f' % (prop_res, float(prop_res)/match_cnt))
+			print('modes: ' + str(modes))
+			print('counts: ' + str(counts))
+			print('percents: '+ str(counts/float(match_cnt)))
+			print('')
+
+	def get_competition(self, split_criteria):
+		self.get_neighbors()
+		self.get_neighbor_related_pricings(3600)
+		for i in range(0,len(self.neighbors)):
+			neigh_id = self.neighbors[i][0]
+			if(neigh_id=='8a5b2591-8821-4a36-9c82-4828c61cba29' or neigh_id=='51d4b5a3-a095-1aa0-e100-80009459e03a'):
+				self.print_station(neigh_id)
+				neigh = STATION_DICT[neigh_id]
+				neigh_data_idc = range(0,len(neigh.pricing_mat))
+				raise_idc = self.get_raise_idc()
+				print(len(raise_idc))
+				# rel_idc = [x for x in neigh_data_idc if x not in raise_idc]
+				follower_idc = [x[1] for x in self.follower[neigh_id]]
+				print(len(follower_idc))
+				print(len(neigh.pricing_mat))
+				print(len(self.leader[neigh_id]))
+				print(self.leader[neigh_id])
+				rel_idc = [x for x in neigh_data_idc if x not in follower_idc]
+				# self.explore_follower()
+				self.explore_statistics_tree(rel_idc, neigh_id, split_criteria)
+
+
 
 def get_station_dict():
     ''' Get the station data from the postgres database pointed to by the CURSORsor
@@ -675,6 +998,25 @@ def get_station_dict():
     	STATION_DICT.update({station_data[i][0] : Station(station_data[i])})
     return STATION_DICT
 
+def station_to_string(station_id):
+	station = STATION_DICT[station_id]
+	st_addr = station.address['street'] + " " + station.address['house_number'] + \
+	" " + station.address['post_code'] + " " + station.address['place']
+
+	name = station.brand
+	if(len(name)==0):
+		name = station.name
+
+	row = "%s | %s | %s" % (name.center(20),
+        station.id.center(36),
+        st_addr.center(60))
+	return row
+
+def get_station_header():
+	return "%s | %s | %s" % ("BRAND".center(20),
+        "ID".center(36),
+        "ADDRESS".center(60))
+
 def replace_Umlaute(r_str):
 	r_str = r_str.replace('ä', 'ae')
 	r_str = r_str.replace('ö', 'oe')
@@ -685,7 +1027,7 @@ def replace_Umlaute(r_str):
 	r_str = r_str.replace('ß', 'ss')
 	return r_str
 
-def plot_pricing_histogram(d=None, from_date=None, to_date=None):
+def plot_pricing_hour_hist(d=None, from_date=None, to_date=None):
 	"""Get all price adaptions in the selected interval und and count 
 	the ocCURSORances for each hour.
 	"""
@@ -784,6 +1126,12 @@ def get_timestamp(days, secs):
 	c_time = time(int(h),int(m),int(s),0,berlin)
 	return datetime.combine(c_date,c_time)
 
+def set_global_d_int(from_date, to_date):
+	global INIT_DATE
+	global END_DATE
+	INIT_DATE = from_date
+	END_DATE = to_date
+
 
 if __name__ == "__main__":
 	con = None
@@ -792,9 +1140,10 @@ if __name__ == "__main__":
 	plz_osnabrueck = '49078'
 
 	berlin = pytz.timezone('Etc/GMT-2')
-	from_date = datetime(2015,6,14,23,59,40,0,berlin)
-	to_date = datetime(2015,6,15,0,10,15,0,berlin)
 
+	from_date = datetime(2016,3,1).date()
+	to_date = datetime(2016,3,30).date()
+	set_global_d_int(from_date, to_date)
 	try:
 		con = psycopg2.connect(database='pricing', user='kai', password='Sakral8!')
 		CURSOR = con.cursor()
@@ -807,24 +1156,10 @@ if __name__ == "__main__":
 		station.get_pricing()
 		station.get_neighbors(init_range=5, min=2, max=20)
 		station.print_neighbors()
-		# print(station.id)
-		station.print_follower_and_leader()
-		# station.get_price_related_stations()
-		# station.print_raises()
-		# station.print_drops()
-		# station.print_drops(days="wd")
-		# station.print_drops(days="we")
-		# station.plot_pricing_time_histogram(d='wd')
-		# station.plot_pricing_month_hist()
 
-		# first_neigh = STATION_DICT[station.neighbors[0][0]]
-		# first_neigh.print_raises()
-		# first_neigh.print_drops()
-		# first_neigh.print_drops(days="wd")
-		# first_neigh.print_drops(days="we")
-		# first_neigh.plot_pricing_time_histogram(d='wd')
-		# first_neigh.plot_pricing_month_hist()
-		
+		# station.print_follower_and_leader()
+		station.get_competition(['tod','we'])
+		# station.get_price_related_stations()
 
 	except psycopg2.DatabaseError, e:
 	    print('Error %s' % e)
