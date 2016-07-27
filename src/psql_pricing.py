@@ -19,6 +19,11 @@ import matplotlib.pyplot as plt
 # python 
 from geopy.geocoders import Nominatim
 
+import warnings
+
+warnings.simplefilter("error")
+
+
 STATION_DICT = None
 CURSOR = None
 SECS_PER_HOUR = 86400
@@ -68,15 +73,16 @@ pa2i = {
 	'pref'	: 12
 }
 
-class bcolors:
-    HEADER = '\033[95m'
-    OKBLUE = '\033[94m'
-    OKGREEN = '\033[92m'
-    WARNING = '\033[93m'
-    FAIL = '\033[91m'
-    ENDC = '\033[0m'
-    BOLD = '\033[1m'
-    UNDERLINE = '\033[4m' 
+bcolors = {
+    "HEADER" : '\033[95m',
+    "OKBLUE" : '\033[94m',
+    "OKGREEN" : '\033[92m',
+    "WARNING" : '\033[93m',
+    "FAIL" : '\033[91m',
+    "ENDC" : '\033[0m',
+    "BOLD" : '\033[1m',
+    "UNDERLINE" : '\033[4m' 
+}
 
 class Station(object):
 	__slots__ = ('id', 'version', 'version_time', 'name', 'brand', 'address',
@@ -153,12 +159,47 @@ class Station(object):
 		"""
 		self.neighbors = None
 		"""
-		@ivar   neighbors: The neighbors of the station
+		@ivar   neighbors: The neighbors of the station. This is based on pure
+							distance and the predecessor of the competitors which
+							are neighbors with a correlating behavior.
 		@dtype  neighbors: C{list}
 		"""
 		self.pricing_mat = None
+		"""
+		@ivar   pricing_mat: The matrix containing all the pricing information
+							(M:=(pricings x parameters))
+							The parameters are listed in the pa2i dict which can
+							be used for better readable indexing.
+		@dtype  pricing_mat: C{numpy.array}
+		"""
 		self.leader = None
+		"""
+		@ivar   leader: The price leaders of this station, meaning stations that
+						cause this station to change its price.
+						Its a dict of lists of tuples: {'neigh_id':[(opi,npi),...],
+														...}
+						For each neighbor it stores the indeces of those pricing
+						pairs where the own pricing closely follows onto a
+						neighbor pricing.
+							neigh_id:= the id of the respective neighbor
+							opi:= the own pricing index
+							npi:= neighbor pricing index
+		@dtype  leader: C{dict}
+		"""
 		self.follower = None
+		"""
+		@ivar   follower: The price followers of this station, meaning stations
+						that change its price in reaction to this station.
+						Its a dict of lists of tuples: {'neigh_id':[(opi,npi),...],
+														...}
+						For each neighbor it stores the indeces of those pricing
+						pairs where the neighbors pricing closely follows onto an
+						own pricing.
+							neigh_id:= the id of the respective neighbor
+							opi:= the own pricing index
+							npi:= neighbor pricing index
+		@dtype  follower: C{dict}
+		"""
 
 	def plot_pricing_month_hist(self, from_date=None, to_date=None):
 
@@ -263,7 +304,7 @@ class Station(object):
 		if(not(isdir(filedir))): os.makedirs(filedir)
 		f = open(join(filedir, "raise_history.txt"),'w+')
 
-		print((bcolors.BOLD + bcolors.OKBLUE + "Raises by station %s" + bcolors.ENDC) % self.name)
+		print(print_bcolors(["BOLD","OKBLUE"], "Raises by station %s" % self.name))
 		f.write(("Raises by station %s" % self.name).center(textwidth))
 		f.write("\n")
 		textwidth_reduced = textwidth - 15
@@ -438,8 +479,11 @@ class Station(object):
 		else:
 			e10_str += " %3d" % e10_dif
 
-		date = INIT_DATE+timedelta(r[pa2i['date']])
-		time = get_timestamp_from_sec(r[pa2i['time']])
+		tst = get_timestamp(r[pa2i['date']],r[pa2i['time']])
+		date = tst.date()
+		time = tst.time()
+		# date = INIT_DATE+timedelta(r[pa2i['date']])
+		# time = get_timestamp_from_sec(r[pa2i['time']])
 
 		row = "%s | %s | %s | %s | %s | %s" % (str(date).center(10),
 			str(time).center(10),
@@ -484,8 +528,8 @@ class Station(object):
 
 		station_str = station_to_string(self.id)
 
-		print(bcolors.BOLD + bcolors.OKBLUE + 'Neighbors of station.'.center(len(station_str)) + bcolors.ENDC)
-		print(bcolors.BOLD + bcolors.OKBLUE + station_str + '\n' + bcolors.ENDC)
+		print(print_bcolors(["BOLD","OKBLUE"],'\n\n' + 'Neighbors of station:'.center(len(station_str))))
+		print(print_bcolors(["BOLD","OKBLUE","UNDERLINE"], station_str + '\n'))
 
 		header = "%s | " % "DIST".center(6)
 		header += get_station_header()
@@ -505,18 +549,16 @@ class Station(object):
 
 	def get_pricing(self, from_date=None, to_date=None):
 
+		"""
+		TODO : combine single pricings
+		"""
 		if(from_date==None): from_date = INIT_DATE
 		if(to_date==None): to_date = END_DATE
 		CURSOR.execute("SELECT * FROM gas_station_information_history"+
-			" WHERE " + STDI + " AND " + D_INT + " ORDER BY date", (self.id, from_date, to_date))
+			" WHERE " + PG_STDI + " AND " + PG_D_INT + " ORDER BY date", (self.id, from_date, to_date))
 
 		cnt = CURSOR.rowcount-1
 		self.pricing_mat = np.zeros((cnt,len(pa2i)))
-
-		month_idx = np.ones((1,2))
-
-		cur_month = from_date.month
-		idx = 0
 
 		prev_price = CURSOR.fetchone()
 		for i in range(0,cnt):
@@ -547,31 +589,20 @@ class Station(object):
 
 			prev_price = fol_price
 
-			if(c_date.month!=cur_month):
-				month_idx[idx,1] = i-month_idx[idx,0]
-				month_idx = np.append(month_idx,[[i,0]],axis=0)
-				idx+=1
-				cur_month = c_date.month
-
-		month_idx[idx,1] = cnt-month_idx[idx,0]
-		self.month_hist = month_idx
-
 	def get_raise_idc(self):
-		if(self.pricing_mat==None): self.get_pricing()
+		if self.pricing_mat is None: self.get_pricing()
 		raise_idc = []
 		for i in range(0,len(self.pricing_mat)):
-			if(self.pricing_mat[i,pa2i['d_diesel']]>0 or
-				self.pricing_mat[i,pa2i['d_e5']]>0 or
-				self.pricing_mat[i,pa2i['d_e10']]>0):
+			pricing = self.pricing_mat[i,:]
+			if(is_raise(pricing)):
 				raise_idc.append(i)
 		return raise_idc
 
 	def get_neighbor_related_pricings(self, t_int):
-		""" Go through all own price adjustments and count for each of the
-		surrounding stations the number of adjustments that ocCURSOR in a time
+		""" Go through all own price adjustments (raises only) and count for each of the
+		surrounding stations the number of adjustments that occur in a time
 		window around the own adjustments (include average reaction time).
 		"""
-		print("Getting follower and leader")
 		secs_p_hour = 86400
 		# get neighbors if necessary
 		if(self.neighbors==None): self.get_neighbors()
@@ -587,48 +618,178 @@ class Station(object):
 			self.follower[neigh[0]] = []
 			self.leader[neigh[0]] = []
 
+		num_neigh = len(self.neighbors)
 		# store the index for each neighbor
-		neigh_pricing_idc = np.zeros((len(self.neighbors), ))
+		neigh_pricing_idc = np.zeros((num_neigh, ))
+		dif_mat = np.zeros((len(self.pricing_mat),num_neigh,3))
 		# go through all own pricings
 		for i in range(0,len(self.pricing_mat)):
-			#get own day and time val
-			own_d = self.pricing_mat[i,pa2i['date']]
-			own_s = self.pricing_mat[i,pa2i['time']]
-			# go through all neighbors
-			for j in range(0,len(neigh_pricing_idc)):
-				# get neighbor object and index
-				neigh_id = self.neighbors[j][0]
-				neigh = STATION_DICT[neigh_id]
-				index = neigh_pricing_idc[j]
-				dif = 0
-				# go up through neighbor pricings until it time dif is bigger than +30 min
-				while(dif<t_int and index+1<len(neigh.pricing_mat)):
-					# get neighbor day and time val
-					neigh_d = neigh.pricing_mat[index,pa2i['date']]
-					neigh_s = neigh.pricing_mat[index,pa2i['time']]
-					# compute dif and increase index
-					dif = secs_p_hour*(neigh_d-own_d)+(neigh_s-own_s)
-					index+=1
-				# go down to the last in index in the below 30min range might be even below -30
-				index = index-1
-				# set this as new index for following iterations
-				neigh_pricing_idc[j] = index
-				# go down from this index and add relevant pricings as f por l until we break lower bound
-				while(dif>-t_int and index>=0):
-					# get neighbor day and time val and compute dif
-					neigh_d = neigh.pricing_mat[index,pa2i['date']]
-					neigh_s = neigh.pricing_mat[index,pa2i['time']]
-					dif = secs_p_hour*(neigh_d-own_d)+(neigh_s-own_s)
-					# if it is in the scope -30 to +30
-					if(dif>-t_int and dif<t_int):
-						# and positive its a follower
-						if(dif>0):
-							self.follower[neigh_id].append((i,index))
-						# otherwise a leader
-						else:
-							self.leader[neigh_id].append((i,index))
-						# same time dont know yet
-					index-=1
+			# raises are done of ones own accord and are treated differently
+			print(str(get_timestamp(self.pricing_mat[i,pa2i['date']], self.pricing_mat[i,pa2i['time']])) + "\t%d" % (self.pricing_mat[i,pa2i['alt']]))
+			if(not(is_raise(self.pricing_mat[i,:]))):
+				#get own day and time val
+				own_d = self.pricing_mat[i,pa2i['date']]
+				own_s = self.pricing_mat[i,pa2i['time']]
+				pot_leader = []
+				pot_follower = []
+				# go through all neighbors
+				for j in range(0,num_neigh):
+					# get neighbor object and index
+					fl = True
+
+					neigh_id = self.neighbors[j][0]
+					neigh = STATION_DICT[neigh_id]
+					index = int(neigh_pricing_idc[j])
+					dif = 0
+					# go up through neighbor pricings until it time dif is bigger than +60 min
+					while(dif<t_int and index+1<len(neigh.pricing_mat)):
+						# get neighbor day and time val
+						neigh_d = neigh.pricing_mat[index,pa2i['date']]
+						neigh_s = neigh.pricing_mat[index,pa2i['time']]
+						# compute dif and increase index
+						dif = secs_p_hour*(neigh_d-own_d)+(neigh_s-own_s)
+						index+=1
+					# go down to the last in index in the below 60 min range might be even below 60
+					index = index-1
+					# set this as new index for following iterations
+					neigh_pricing_idc[j] = index
+					# go down from this index and add relevant pricings as f por l until we break lower bound
+					while(dif>-t_int and index>=0):
+						# get neighbor day and time val and compute dif
+						neigh_d = neigh.pricing_mat[index,pa2i['date']]
+						neigh_s = neigh.pricing_mat[index,pa2i['time']]
+						dif = secs_p_hour*(neigh_d-own_d)+(neigh_s-own_s)
+						# if it is in the scope -60 to +60
+						if(dif>-t_int and dif<t_int):
+							# and positive its a follower
+							if(dif>0):
+								pot_follower.append((neigh_id, index))
+								self.follower[neigh_id].append((i,index))
+							# otherwise a leader
+							else:
+								if(fl):
+									dif_mat[i,j,:] = get_price_dif(self.pricing_mat[i,:],neigh.pricing_mat[index,:])
+									fl = False
+								pot_leader.append((neigh_id, index, dif))
+								self.leader[neigh_id].append((i,index))
+							# same time dont know yet
+						index-=1
+					if(fl):
+						dif_mat[i,j,:] = 30
+
+				# self.get_probably_causing_pricing(i, pot_leader)
+				# raw_input("Press Enter to continue...")
+			else:
+				"""TODO Raise stats"""
+				dif_mat[i,:,:] = 20
+
+		self.plot_dif_hist(dif_mat)
+
+	def plot_dif_hist(self, dif_mat):
+
+		def autolabel(rects):
+		    # attach some text labels
+		    for rect in rects:
+		        height = rect.get_height()
+		        ax.text(rect.get_x() + rect.get_width()/2., 1.05*height,
+		                '%d' % int(height),
+		                ha='center', va='bottom')
+
+		for n in range(0,len(self.neighbors)):
+			fig = plt.figure()
+			fig.suptitle(station_to_string(self.neighbors[n][0]))
+			for fuel in range(0,3):
+				unique, counts = np.unique(dif_mat[:,n,fuel], return_counts=True)
+				print(dif_mat[:,n,fuel])
+				print(zip(unique[:-2],counts[:-2]))
+				ax = fig.add_subplot(3,1,fuel+1)
+
+				## necessary variables
+				width = 0.35
+				ind = np.arange(len(unique)-2)
+				## the bars
+				rects1 = ax.bar(ind, counts[:-2], width, color='red')
+
+				# axes and labels
+				ax.set_xlim(-width,len(unique)+width)
+				# ax.set_ylim(0,45)
+				ax.set_ylabel('counts')
+				ax.set_xlabel('dif',ha='right')
+				ax.set_title(5*fuel)
+
+				ax.set_xticks(ind + width/2)
+				xtickNames = ax.set_xticklabels(unique)
+				plt.setp(xtickNames, rotation=60, fontsize=8)
+				# plt.gcf().subplots_adjust(bottom=0.15)
+				autolabel(rects1)
+
+			## add a legend
+			# ax.legend((rects1[0], ), ('pricings month hist', ))
+			fig.tight_layout()
+			plt.show()
+			filedir = join(ANALYSIS_PATH, self.name)
+			if(not(isdir(filedir))): os.makedirs(filedir)
+			fig.savefig(join(filedir, ("dif_hist")))
+
+	def get_probably_causing_pricing(self, own_idx, contenders):
+		real_contenders =  ['8a5b2591-8821-4a36-9c82-4828c61cba29', 'ebc673e0-8359-4ab6-0afa-c31cc35c4bd2',
+		'30d8de2f-7728-4328-929f-b45ff1659901', '51d4b54f-a095-1aa0-e100-80009459e03a', '51d4b5a3-a095-1aa0-e100-80009459e03a',
+		'f4b31676-e65e-4b60-8851-609c107f5d93']
+		for (neigh_id,index, dif) in contenders:
+			neigh = STATION_DICT[neigh_id]
+			d_dif_pre, e5_dif_pre, e10_dif_pre = get_price_dif(self.pricing_mat[own_idx-1,:],neigh.pricing_mat[index-1,:])
+			d_dif_bet, e5_dif_bet, e10_dif_bet = get_price_dif(self.pricing_mat[own_idx-1,:],neigh.pricing_mat[index,:])
+			d_dif_post, e5_dif_post, e10_dif_post = get_price_dif(self.pricing_mat[own_idx,:],neigh.pricing_mat[index,:])
+			station_str = station_to_string(neigh_id)
+			row = "%2.3f | %3d -> %3d -> %3d | %3d -> %3d -> %3d | %3d -> %3d -> %3d | %s" % (float(dif)/60,
+			d_dif_pre, d_dif_bet, d_dif_post,
+			e5_dif_pre, e5_dif_bet, e5_dif_post,
+			e10_dif_pre, e10_dif_bet, e10_dif_post, 
+			station_str)
+			if(neigh_id in real_contenders):
+				row = print_bcolors(['OKGREEN'], row)
+			print(row)
+			"""
+			price wiederhergestellt
+			schnelllste
+			gleiche abstände
+			von pre zu bet dif nach oben
+			hövhste abstände
+			erstes pricing nach einem raise besonders behandeln
+			"""
+
+	def filter_follower_and_leader(self, neigh_id):
+		neigh = STATION_DICT[neigh_id]
+		l_idx = 0
+		f_idx = 0
+		leader = self.leader[neigh_id]
+		follower = self.follower[neigh_id]
+		while(l_idx<len(leader) and f_idx<len(follower)):
+			rel = leader[l_idx][0]-follower[f_idx][0]
+			if(rel<0):
+				l_idx += 1
+			elif(rel>0):
+				f_idx += 1
+			else:
+				neigh_lead = leader[l_idx][1]
+				neigh_fol = follower[f_idx][1]
+				own = leader[l_idx][0]
+				if(neigh_lead!=0  and own!=0):
+					print('')
+					d_dif, e5_dif, e10_dif = get_price_dif(self.pricing_mat[own-1,:], neigh.pricing_mat[neigh_lead-1,:])
+					print(print_bcolors(["OKBLUE"], "%d\t%d\t%d" %(d_dif, e5_dif, e10_dif)))
+					print(neigh.pricing_to_string(leader[l_idx][1]))
+					d_dif, e5_dif, e10_dif = get_price_dif(self.pricing_mat[own-1,:], neigh.pricing_mat[neigh_lead,:])
+					print(print_bcolors(["OKBLUE"], "%d\t%d\t%d" %(d_dif, e5_dif, e10_dif)))
+					print(self.pricing_to_string(leader[l_idx][0]))
+					d_dif, e5_dif, e10_dif = get_price_dif(self.pricing_mat[own,:], neigh.pricing_mat[neigh_lead,:])
+					print(print_bcolors(["OKBLUE"], "%d\t%d\t%d" %(d_dif, e5_dif, e10_dif)))
+					print(neigh.pricing_to_string(follower[f_idx][1]))
+					d_dif, e5_dif, e10_dif = get_price_dif(self.pricing_mat[own,:], neigh.pricing_mat[neigh_fol,:])
+					print(print_bcolors(["OKBLUE"], "%d\t%d\t%d" %(d_dif, e5_dif, e10_dif)))
+				l_idx += 1
+				f_idx += 1
+				raw_input("Press Enter to continue...")
 
 	def print_follower_and_leader(self):
 		self.get_neighbor_related_pricings(3600)
@@ -776,7 +937,8 @@ class Station(object):
 		print("")
 
 	def get_concrete_rule(self):
-		pass 
+		"""TODO"""
+		pass
 
 	def split_at(self, data_idc, station_id, split_criterium):
 
@@ -842,20 +1004,42 @@ class Station(object):
 
 	def explore_statistics_tree(self, data_idc, neigh_id , split_criteria, node_label='all'):
 
+		textwidth = 80
+
 		leader = self.leader[neigh_id] #(own_idx, leader_idx)
 		matches = self.get_matching_leader_subset(data_idc, leader)
-		mean_r_time, std_r_time = self.get_mean_and_dev_r_time(matches, neigh_id) 
-		all_r, prop_r, modes, counts = self.get_price_dif_stats(matches, neigh_id)
-		# follower_stats = self.get_follower_stats(data, neigh_id)
+		match_cnt = len(matches)
+		data_cnt = len(data_idc)
+		# if(node_label=="all"):
+		# 	if(float(match_cnt)/data_cnt<0.6):
+		# 		print(print_bcolors(["WARNING"], 'Probably not a leader:'))
+		# 		print(print_bcolors(["WARNING"], 'contains %d pricings with %d leader matches, making only %.3f' % (data_cnt, match_cnt, float(match_cnt)/data_cnt)))
+		# 		return
+		# 	else:
+		# 		print(print_bcolors(["OKGREEN"], 'Might be a leader:'))
+		# 		print(print_bcolors(["OKGREEN"], 'contains %d pricings with %d leader matches, making about %.3f' % (data_cnt, match_cnt, float(match_cnt)/data_cnt)))
+		# 		return
 
-		# append statsplot to tree using ETE?
-		# plot histogram
-		self.print_leader_stats(node_label, len(data_idc), len(matches), mean_r_time, std_r_time, all_r, prop_r, modes, counts)
+		if(len(matches)>0):
+			mean_r_time, std_r_time = self.get_mean_and_dev_r_time(matches, neigh_id) 
+			all_r, prop_r, modes, counts = self.get_price_dif_stats(matches, neigh_id)
+			# follower_stats = self.get_follower_stats(data, neigh_id)
+
+			# append statsplot to tree using ETE?
+			# plot histogram
+			print(print_bcolors(["OKGREEN","BOLD"], "\n" + node_label.center(textwidth)))
+			self.print_leader_stats(node_label, len(data_idc), len(matches), mean_r_time, std_r_time, all_r, prop_r, modes, counts)
+
+		else:
+			print(print_bcolors(["OKGREEN","BOLD"], "\n" + node_label.center(textwidth)))
+			print(print_bcolors(["WARNING"], 'no matches in this intervall!!!'))
 		# self.print_follower_stats(follower_stats)
 		if(len(split_criteria)>0):
-			print(split_criteria)
+
 			c_copy = split_criteria[:]
 			crit = c_copy.pop()
+
+			print(print_bcolors(["BOLD","UNDERLINE"], '\n' + ('Splitting at: ' + crit).center(textwidth)))
 			data_splits, labels = self.split_at(data_idc, neigh_id, crit)
 			for i in range(0,len(data_splits)):
 				self.explore_statistics_tree(data_splits[i], neigh_id, c_copy[:], node_label=labels[i])
@@ -871,8 +1055,16 @@ class Station(object):
 			neigh_d = neigh.pricing_mat[l,pa2i['date']]
 			neigh_s = neigh.pricing_mat[l,pa2i['time']]
 			time_dif[i] = SECS_PER_HOUR*(neigh_d-own_d)+(neigh_s-own_s)
+			
+		try:
+			m = np.mean(time_dif)
+			s = np.std(time_dif)
 		
-		return np.mean(time_dif), np.std(time_dif)
+		except:
+			print(len(time_dif))
+			# sys.exit(1)
+
+		return m, s
 
 	def get_price_dif_stats(self, leader, neigh_id):
 		neigh = STATION_DICT[neigh_id]
@@ -926,7 +1118,7 @@ class Station(object):
 
 		m = stats.mode(price_dif)
 
-		return all_cnt, prop_cnt, m[0], m[1]
+		return all_cnt, prop_cnt, m[0][0], m[1][0]
 		
 	def get_matching_leader_subset(self, data_idc_sub, leader):
 		matches = []
@@ -945,7 +1137,6 @@ class Station(object):
 
 	def print_leader_stats(self, node_label, data_sub_cnt, match_cnt, mean_r_time, std_r_time, all_res, prop_res, modes, counts):
 
-		print(node_label)
 		if(data_sub_cnt==0 or match_cnt==0):
 			print('no matches in thís intervall!!!')
 		else:
@@ -953,32 +1144,46 @@ class Station(object):
 			print('reacted in an average of %f with a std of %f' % (mean_r_time, std_r_time))
 			print('the own pricing resettet %d times all prices making %f' % (all_res, float(all_res)/match_cnt))
 			print('the own pricing resettet %d times the appropriate prices making %f' % (prop_res, float(prop_res)/match_cnt))
-			print('modes: ' + str(modes))
-			print('counts: ' + str(counts))
-			print('percents: '+ str(counts/float(match_cnt)))
-			print('')
+			zipped = zip(modes,counts,(counts/float(match_cnt)))
+
+			print(print_bcolors(["UNDERLINE"], "diesel".center(25) + "e5".center(25) + "e10".center(25)))
+			for i in range(0,len(zipped)/3):
+				row = "%2d\t%2d\t%.3f | " %(int(zipped[i][0]), zipped[i][1], zipped[i][2])
+				row += "%2d\t%2d\t%.3f | " %(int(zipped[i+3][0]), zipped[i+3][1], zipped[i+3][2])
+				row += "%2d\t%2d\t%.3f" %(int(zipped[i+6][0]), zipped[i+6][1], zipped[i+6][2])
+				print(row)
+			# print('modes: ' + str(modes))
+			# print('counts: ' + str(counts))
+			# print('percents: '+ str(counts/float(match_cnt)))
 
 	def get_competition(self, split_criteria):
 		self.get_neighbors()
 		self.get_neighbor_related_pricings(3600)
+		print(print_bcolors(["OKBLUE","BOLD"],'Evaluating competition'.center(120)))
 		for i in range(0,len(self.neighbors)):
 			neigh_id = self.neighbors[i][0]
-			if(neigh_id=='8a5b2591-8821-4a36-9c82-4828c61cba29' or neigh_id=='51d4b5a3-a095-1aa0-e100-80009459e03a'):
-				self.print_station(neigh_id)
-				neigh = STATION_DICT[neigh_id]
-				neigh_data_idc = range(0,len(neigh.pricing_mat))
-				raise_idc = self.get_raise_idc()
-				print(len(raise_idc))
-				# rel_idc = [x for x in neigh_data_idc if x not in raise_idc]
-				follower_idc = [x[1] for x in self.follower[neigh_id]]
-				print(len(follower_idc))
-				print(len(neigh.pricing_mat))
-				print(len(self.leader[neigh_id]))
-				print(self.leader[neigh_id])
-				rel_idc = [x for x in neigh_data_idc if x not in follower_idc]
-				# self.explore_follower()
-				self.explore_statistics_tree(rel_idc, neigh_id, split_criteria)
+			# if(neigh_id=='8a5b2591-8821-4a36-9c82-4828c61cba29' or neigh_id=='51d4b5a3-a095-1aa0-e100-80009459e03a'):
+			print(print_bcolors(["OKBLUE","BOLD","UNDERLINE"],"\n\n"+station_to_string(neigh_id)+"\n"))
+			neigh = STATION_DICT[neigh_id]
+			neigh_data_idc = range(0,len(neigh.pricing_mat))
+			raise_idc = neigh.get_raise_idc()
+			print("num neigh pricings: %d" % len(neigh.pricing_mat))
+			print("num neigh raise_idc: %d" % len(raise_idc))
+			rel_idc = [x for x in neigh_data_idc if x not in raise_idc]
 
+			follower_idc = [x[1] for x in self.follower[neigh_id]]
+			print("num neigh following idc: %d" % len(follower_idc))
+			print("num neigh leading idc: %d" % len(self.leader[neigh_id]))
+			rel_idc = [x for x in rel_idc if x not in follower_idc]
+
+			# self.filter_follower_and_leader(neigh_id)
+			# self.explore_follower()
+			self.explore_statistics_tree(rel_idc, neigh_id, split_criteria)
+			raw_input("Press Enter to continue...")
+
+	def cross_check_for_chain_reaction(self):
+		"""TODO"""
+		pass
 
 
 def get_station_dict():
@@ -1132,6 +1337,24 @@ def set_global_d_int(from_date, to_date):
 	INIT_DATE = from_date
 	END_DATE = to_date
 
+def print_bcolors(formats, text):
+	formated_text = ''
+	for format in formats:
+		formated_text += bcolors[format]
+	formated_text += text + bcolors["ENDC"]
+	return formated_text
+
+def get_price_dif(p1,p2):
+	d_dif = int(p1[pa2i['diesel']] - p2[pa2i['diesel']])
+	e5_dif = int(p1[pa2i['e5']] - p2[pa2i['e5']])
+	e10_dif = int(p1[pa2i['e10']] - p2[pa2i['e10']])
+	return d_dif, e5_dif, e10_dif
+
+def is_raise(p):
+	if(p[pa2i['d_diesel']]>0 and p[pa2i['d_e5']]>0 and p[pa2i['d_e10']]>0):
+		return True
+	else:
+		return False
 
 if __name__ == "__main__":
 	con = None
