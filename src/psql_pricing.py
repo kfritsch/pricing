@@ -277,36 +277,71 @@ class Station(object):
 			# count is reduced by the first one
 			cnt -= 1
 
+		p_idx = 0
 		# get all pricings
 		for i in range(0,cnt):
+			# get the next pricing
 			fol_price=CURSOR.fetchone()
-
-			self.pricing_mat[i,pa2i['id']] = fol_price[0]
+			# get the date and time
 			c_date = fol_price[5].date()
-			self.pricing_mat[i,pa2i['date']] = (c_date - INIT_DATE).days
 			c_time = fol_price[5].time()
-			self.pricing_mat[i,pa2i['dow']] = int(fol_price[5].weekday())
-			self.pricing_mat[i,pa2i['we']] = self.pricing_mat[i,pa2i['dow']]/5
-			self.pricing_mat[i,pa2i['month']] = fol_price[5].date().month
-			self.pricing_mat[i,pa2i['time']] = c_time.hour*3600 + c_time.minute*60 + c_time.second
-			c_changed = fol_price[6]
-			self.pricing_mat[i,pa2i['alt']] = c_changed
+			# get the gas prices
 			c_diesel = fol_price[4]
-			self.pricing_mat[i,pa2i['diesel']] = float(c_diesel)/10
 			c_e5 = fol_price[2]
-			self.pricing_mat[i,pa2i['e5']] = float(c_e5)/10
 			c_e10 = fol_price[3]
-			self.pricing_mat[i,pa2i['e10']] = float(c_e10)/10
-
+			# get all differences to the previous prices
 			d_dif = (c_diesel - prev_price[4])/10
-			self.pricing_mat[i,pa2i['d_diesel']] = d_dif
 			e5_dif = (c_e5 - prev_price[2])/10
-			self.pricing_mat[i,pa2i['d_e5']] = e5_dif
 			e10_dif = (c_e10 - prev_price[3])/10
-			self.pricing_mat[i,pa2i['d_e10']] = e10_dif
+			# check if the prices were changed but not to zero
+			diesel_changed = (d_dif!=0) and (c_diesel!=0)
+			e5_changed = (e5_dif!=0) and (c_e5!=0)
+			e10_changed = (e10_dif!=0) and (c_e10!=0)
+			# if any one was changed thsi is a pricing otherwise it is just neglected
+			if(diesel_changed or e5_changed or e10_changed):
+				# set the id
+				self.pricing_mat[i,pa2i['id']] = fol_price[0]
+				# set time related values
+				self.pricing_mat[i,pa2i['date']] = (c_date - INIT_DATE).days
+				self.pricing_mat[i,pa2i['dow']] = int(fol_price[5].weekday())
+				self.pricing_mat[i,pa2i['we']] = self.pricing_mat[i,pa2i['dow']]/5
+				self.pricing_mat[i,pa2i['month']] = fol_price[5].date().month
+				self.pricing_mat[i,pa2i['time']] = c_time.hour*3600 + c_time.minute*60 + c_time.second
+				# compute which prices were changed
+				c_changed = diesel_changed*1 + e5_changed*4 + e10_changed*16
+				self.pricing_mat[i,pa2i['alt']] = c_changed
 
-			# the new previous one is the just added pricing
-			prev_price = fol_price
+				# if the value was set to zero take the previous one for all prices
+				# otherwise take the new one
+				if(c_diesel==0):
+					self.pricing_mat[i,pa2i['diesel']] = float(prev_price[4])/10
+					self.pricing_mat[i,pa2i['d_diesel']] = 0
+					fol_price[4] = prev_price[4]
+				else:		
+					self.pricing_mat[i,pa2i['diesel']] = float(c_diesel)/10
+					self.pricing_mat[i,pa2i['d_diesel']] = d_dif
+
+				if(c_e5==0):
+					self.pricing_mat[i,pa2i['e5']] = float(prev_price[2])/10
+					self.pricing_mat[i,pa2i['d_e5']] = 0
+					fol_price[2] = prev_price[2]
+				else:		
+					self.pricing_mat[i,pa2i['e5']] = float(c_e5)/10
+					self.pricing_mat[i,pa2i['d_e5']] = e5_dif
+
+				if(c_e10==0):
+					self.pricing_mat[i,pa2i['e10']] = float(prev_price[4])/10
+					self.pricing_mat[i,pa2i['d_e10']] = 0
+					fol_price[4] = prev_price[4]
+				else:		
+					self.pricing_mat[i,pa2i['e10']] = float(c_e10)/10
+					self.pricing_mat[i,pa2i['d_e10']] = e10_dif
+
+				# the new previous one is the just added pricing
+				prev_price = fol_price
+				p_idx+=1
+
+		np.delete(self.pricing_mat, np.arange(p_idx,cnt), 0)
 
 		if(rem_outlier):
 			self.remove_outlier_from_pricing()
@@ -2699,52 +2734,6 @@ class Rule(object):
 				i+=1
 
 			x_labels = unique_comb
-
-
-
-			# # indices for the lists
-			# u_ma = 0
-			# u_mi = 0
-			# # new counts
-			# match_c = []
-			# miss_c = []
-			# # new differences
-			# x_labels = []
-
-
-			# # go through the lists until one end is reached
-			# while(u_ma<len(unique_match) and u_mi<len(unique_miss)):
-			# 	# if the differences match add the values of both
-			# 	if(unique_match[u_ma]==unique_miss[u_mi]):
-			# 		match_c.append(counts_match[u_ma])
-			# 		miss_c.append(counts_miss[u_mi])
-			# 		x_labels.append(unique_match[u_ma])
-			# 		u_ma+=1
-			# 		u_mi+=1
-			# 	# if match is lower add the match and a zero for miss
-			# 	elif(unique_match[u_ma]<unique_miss[u_mi]):
-			# 		match_c.append(counts_match[u_ma])
-			# 		miss_c.append(0)
-			# 		x_labels.append(unique_match[u_ma])
-			# 		u_ma+=1
-			# 	# if miss is lower add the miss and a zero for match
-			# 	else:
-			# 		miss_c.append(counts_miss[u_mi])
-			# 		match_c.append(0)
-			# 		x_labels.append(unique_miss[u_mi])
-			# 		u_mi+=1
-			# # when there are matches left add them and zeros for misses
-			# while(u_ma<len(unique_match)):
-			# 	match_c.append(counts_match[u_ma])
-			# 	miss_c.append(0)
-			# 	x_labels.append(unique_match[u_ma])
-			# 	u_ma+=1
-			# # when there are misses left add them and zeros for matches
-			# while(u_mi<len(unique_miss)):
-			# 	miss_c.append(counts_miss[u_mi])
-			# 	match_c.append(0)
-			# 	x_labels.append(unique_miss[u_mi])
-			# 	u_mi+=1
 
 			# set title of the axe
 			ax.set_title(GAS[gas],fontsize=20, position=(0.5,1.0), weight='bold')
