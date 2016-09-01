@@ -15,7 +15,7 @@ import collections
 # pyhton timezone library
 import pytz
 from datetime import datetime, timedelta, time
-from math import sin, cos, atan2, sqrt, radians
+from math import sin, cos, atan2, sqrt, radians, atan, pi
 import numpy as np
 from scipy import stats
 import matplotlib.pyplot as plt
@@ -213,10 +213,8 @@ class Station(object):
 							npi:= neighbor pricing index
 		@dtype  follower: C{dict}
 		"""
-		# add the own station as folder to the analysis path
-		self.analysis_path = join(ANALYSIS_PATH, station_to_string(self.id, False).replace(" ", "_").replace(".", "-"))
-		if(not(isdir(self.analysis_path))): os.makedirs(self.analysis_path)
 
+		self.analysis_path = ANALYSIS_PATH
 		self.rule = None
 	
 	def __str__(self):
@@ -402,6 +400,8 @@ class Station(object):
 		# add the time interval as folder to the analysis path
 		self.analysis_path = join(self.analysis_path, str(d_int[0]).replace("-","_")+"-"+str(d_int[1]).replace("-","_"))
 		if(not(isdir(self.analysis_path))): os.makedirs(self.analysis_path)
+		self.analysis_path = join(self.analysis_path, str(self).replace(" ", "_").replace(".", "-"))
+		if(not(isdir(self.analysis_path))): os.makedirs(self.analysis_path)
 
 		# get the own pricing
 		self.get_pricing(d_int)
@@ -419,16 +419,15 @@ class Station(object):
 		for i in range(0,len(self.neighbors)):
 			# get neighbor id
 			neigh_id = self.neighbors[i][0]
-			# DEBUG: only the specific station
-			if(neigh_id == "51d4b5a3-a095-1aa0-e100-80009459e03a"):
-				# PRINT: the current station as string
-				print(print_bcolors(["OKBLUE","BOLD","UNDERLINE"],"\n\n"+station_to_string(neigh_id)+"\n"))
-				# get all the pricings out that potentially disrupt the analysis (CURRENTLY: raises)
-				rel_idc = self._get_rel_idc(neigh_id)
-				# build up the potential rule by investigating the differnet time levels
-				self.rule = self._explore_statistics_tree(rel_idc, self.leader_n_idx[neigh_id], neigh_id, split_criteria, 0, [0])
-				# PAUSE: after each station investigated
-				pause()
+			neigh = STATION_DICT[neigh_id]
+			# PRINT: the current station as string
+			print(print_bcolors(["OKBLUE","BOLD","UNDERLINE"],"\n\n"+str(neigh)+"\n"))
+			# get all the pricings out that potentially disrupt the analysis (CURRENTLY: raises)
+			rel_idc = self._get_rel_idc(neigh_id)
+			# build up the potential rule by investigating the differnet time levels
+			self.rule = self._explore_time_tree(rel_idc, self.leader_n_idx[neigh_id], neigh_id, split_criteria, [0])
+			# # PAUSE: after each station investigated
+			# pause()
 
 	def day_analysis(self, day):
 		'''
@@ -760,7 +759,7 @@ class Station(object):
 									'''
 									IF THERE ARE SEVERAL OWN
 									'''
-									self._check_leader_multi_multi(neigh_set_idx, neigh_set_alt, neigh_set_time, own_set_idx, own_set_alt, neigh_id, j)
+									self._check_leader_multi_multi2(neigh_set_idx, neigh_set_alt, neigh_set_time, own_set_idx, own_set_alt, neigh_id, j, t_int)
 
 						# the potential cause has been treated and is not relevant any further
 						index+=1
@@ -917,6 +916,10 @@ class Station(object):
 		# first we have to exclude all where the leader is after the own pricing
 		while(osi<len(own_set_idx) and get_time_dif(neigh_pricing, self.pricing_mat[own_set_idx[osi]])>0):
 			osi+=1
+		if(osi==len(own_set_idx)):
+		# 	# PRINT: the relevant information red if not succeded
+			# print(print_bcolors(["BOLD","FAIL"],n_str))
+			return take
 
 		# crate an artificial pricing to add up the changed value. A proper reactive pricing still needs
 		# to be lower or equal to its cause 
@@ -954,11 +957,11 @@ class Station(object):
 			# else check if it could be combined with previous ones
 			else:
 				# get the single changed values in the leader
-				changes = [val for (alt,val) in zip(neigh_pricing[7,9,11],[1,4,16]) if alt<0]
+				changes = [val for (alt,val) in zip(neigh.pricing_mat[leader_idx,[7,9,11]],[1,4,16]) if alt!=0]
 				# go back through own pricings 
 				while(osi>0 and len(changes)>0):
 					# get the single changed values in the own pricing
-					own_changes = [val for (alt,val) in zip(self.pricing_mat[own_set_idx[osi],[7,9,11]],[1,4,16]) if alt<0]
+					own_changes = [val for (alt,val) in zip(self.pricing_mat[own_set_idx[osi],[7,9,11]],[1,4,16]) if alt!=0]
 					# remove all own values from the leader
 					for val in own_changes:
 						if(val in changes):
@@ -974,13 +977,13 @@ class Station(object):
 				# add the list of reactions to the output string
 				n_str += str(take)
 
-			# # PRINT: the relevant information green if succeded
-			# print(print_bcolors(["BOLD","OKGREEN"],n_str))
-			return take
+				# # PRINT: the relevant information green if succeded
+				# print(print_bcolors(["BOLD","OKGREEN"],n_str))
+				# return take
 		else:
 		# 	# PRINT: the relevant information red if not succeded
-		# 	print(print_bcolors(["BOLD","FAIL"],n_str))
-		return take
+			# print(print_bcolors(["BOLD","FAIL"],n_str))
+			return take
 
 	def _check_leader_multi_single(self, neigh_set_idx, neigh_set_alt, neigh_set_time, own_idx, neigh_id, j):
 		"""
@@ -1023,11 +1026,11 @@ class Station(object):
 
 		share_change = False
 		# get own changes
-		own_changes = [alt<0 for alt in own_pricing[7,9,11]]
+		own_changes = [alt<0 for alt in self.pricing_mat[own_idx,[7,9,11]]]
 		# go back through the possible causes until we either find a possible cause or a pricing
 		# that changed one of the gases changed by the own pricing while neglecting all pricings
 		# where there were no related gas changes
-		while(n_idx>=0 and not(share_changes)):
+		while(n_idx>=0 and not(share_change)):
 			if(proper_drop_dif(neigh.pricing_mat[neigh_set_idx[n_idx]], own_pricing)):
 				self.leader_n_idx[neigh_id].append((own_idx,neigh_set_idx[n_idx],0,0))
 				self.leader_p_idx[own_idx].append((neigh_id,neigh_set_idx[n_idx],0,0))
@@ -1040,7 +1043,7 @@ class Station(object):
 				# get neigh changes
 				changes = [alt<0 for alt in neigh.pricing_mat[neigh_set_idx[n_idx],[7,9,11]]]
 				# check for shared changes
-				for i in range(GAS):
+				for i in range(len(GAS)):
 					if(own_changes[i] and changes[i]):
 						share_change = True
 						break
@@ -1060,11 +1063,12 @@ class Station(object):
 			n_idx+=1
 			take = [neigh_set_idx[n_idx]]
 			# crate an artificial pricing to add up the changed value from the leaders. A proper reactive pricing still needs
-			# to be lower or equal to its cause 
+			# to be lower or equal to its cause
+
 			art_pricing = np.zeros((len(pa2i), ))
-			art_pricing[pa2i['d_diesel']] += self.pricing_mat[neigh_set_idx[n_idx],pa2i['d_diesel']]
-			art_pricing[pa2i['d_e5']] += self.pricing_mat[neigh_set_idx[n_idx],pa2i['d_e5']]
-			art_pricing[pa2i['d_e10']] += self.pricing_mat[neigh_set_idx[n_idx],pa2i['d_e10']]
+			art_pricing[pa2i['d_diesel']] += neigh.pricing_mat[neigh_set_idx[n_idx],pa2i['d_diesel']]
+			art_pricing[pa2i['d_e5']] += neigh.pricing_mat[neigh_set_idx[n_idx],pa2i['d_e5']]
+			art_pricing[pa2i['d_e10']] += neigh.pricing_mat[neigh_set_idx[n_idx],pa2i['d_e10']]
 			# go back while combining was possible
 
 			#go to the next idx
@@ -1160,25 +1164,19 @@ class Station(object):
 					# if the pricing is after the leader at all			
 					if(dif>=0):
 						cur_n_set.append(neigh_set_idx[nsi])
-						cur_n_alt.append(neigh_alt_idx[nsi])
-						cur_n_time.append(neigh_time_idx[nsi])
+						cur_n_alt.append(neigh_set_alt[nsi])
+						cur_n_time.append(neigh_set_time[nsi])
 					# if it is before the leader
 					else:
 						neigh_set_idx.pop(nsi)
-						neigh_alt_alt.pop(nsi)
+						neigh_set_alt.pop(nsi)
 						neigh_set_time.pop(nsi)
 
 					nsi-=1
 				else:
 					break
-			# if there is no possible leader for this reaction
-			if(len(cur_n_set)==0):
-				# # PRINT: the relevant information red for fail
-				# n_str = ('\t' + str(j) + '\t' + str(cur_n_set) + '\t' + str(cur_n_alt) + '\t' + str(cur_n_time) + "\t -> \t " + str([osi]))
-				# print(print_bcolors(["BOLD","FAIL"],n_str))
-
 			# if there was one leader found, do the single single check
-			elif(len(cur_n_set)==1):
+			if(len(cur_n_set)==1):
 				rem_n = self._check_leader_single_single(cur_n_set[0], osi, neigh_id, j)
 				if(rem_n):
 					rem_idx = neigh_set_idx.index(cur_n_set[0])
@@ -1187,13 +1185,18 @@ class Station(object):
 					neigh_set_time.pop(rem_idx)
 
 			# if there were several leader found, do the multi single check
-			else:
+			elif(len(cur_n_set)>1):
 				to_rem = self._check_leader_multi_single(cur_n_set, cur_n_alt, cur_n_alt, osi, neigh_id, j)
 				for r_nsi in to_rem:
 					rem_idx = neigh_set_idx.index(r_nsi)
 					neigh_set_idx.pop(rem_idx)
 					neigh_set_alt.pop(rem_idx)
 					neigh_set_time.pop(rem_idx)
+			# if there is no possible leader for this reaction
+			else:
+				# PRINT: the relevant information red for fail
+				n_str = ('\t' + str(j) + '\t' + str(cur_n_set) + '\t' + str(cur_n_alt) + '\t' + str(cur_n_time) + "\t -> \t " + str([osi]))
+				# print(print_bcolors(["BOLD","FAIL"],n_str))
 
 	def _check_leader_multi_multi(self, neigh_set_idx, neigh_set_alt, neigh_set_time, own_set_idx, own_set_alt, neigh_id, j):
 		"""
@@ -1393,7 +1396,7 @@ class Station(object):
 			# return the number of elements to remove
 			return num_neigh, num_own
 		else:
-			num_own = en(own_set_idx)-osi
+			num_own = len(own_set_idx)-osi
 			num_neigh = 0
 			# # PRINT relevant information 
 			# n_str = ('\t' + str(j) + '\t' + str(neigh_set_idx) + '\t' + str(neigh_set_alt) + '\t' + str(neigh_set_time) + "\t -> \t " + str([own_set_idx[osi]]))
@@ -1525,9 +1528,9 @@ class Station(object):
 						we.append(idx)
 					else:
 						wd.append(idx)
-				splits = [we,wd]
+				splits = [wd,we]
 				# the values are 1(True) for weekend and 0(False) for weekday
-				spit_vals = [1,0]
+				spit_vals = [0,1]
 				return splits, spit_vals
 
 			# split data between different days of the week
@@ -1565,7 +1568,7 @@ class Station(object):
 			print("You used %s as split criterium. Please use we, dow, tod or hour only!" % split_criterium)
 			sys.exit(1)
 
-	def _explore_time_tree(self, rel_idc, leader, neigh_id , split_criteria, split_level, split_vals):
+	def _explore_time_tree(self, rel_idc, leader, neigh_id , split_criteria, split_vals):
 		"""
 		There might not be one rule concerning one competitor for the whole time. THere might be different rules for different
 		time categories (e.g. weekend vs weekday, morning vs afternoon and many more).
@@ -1598,9 +1601,10 @@ class Station(object):
 		@return split_criteria: the toprule concerning this neighbor
 		@dtype splits: Rule
 		"""
-
+		if(len(rel_idc)<10):
+			return None
 		# initialize the new rule for this level
-		rule = Rule(self.id, neigh_id, split_criteria, split_level, split_vals, self.analysis_path)
+		rule = Rule(self.id, neigh_id, split_criteria[0:len(split_vals)], split_vals, self.analysis_path)
 		# get the matching leaders for this level as well as the unreacted pricings
 		matches, misses = self._get_matches_and_misses_subsets(rel_idc, leader, neigh_id)
 		# pass some values to the count dict of the rule
@@ -1617,13 +1621,11 @@ class Station(object):
 		rule._get_stats(matches, misses)
 
 		# if there are enough pricings in this category that splitting up might be sensible 
-		if(rule.split_further):
-			# increase the split level
-			split_level+=1
+		if(len(matches)>=10):
 			# check if there are further splits possible
-			if(split_level<len(split_criteria)):
+			if(len(split_vals)<len(split_criteria)):
 				# get the next split criterium
-				next_crit = split_criteria[split_level]
+				next_crit = split_criteria[len(split_vals)]
 				# split the data
 				data_splits, new_split_vals = self._split_at(rel_idc, neigh_id, next_crit)
 				# generate a list of subrules one for each split
@@ -1636,8 +1638,9 @@ class Station(object):
 				split_vals.append(0)
 				for i in range(0,len(data_splits)):
 					# add the new split value and get the next rule
-					split_vals[-1] = new_split_vals[i]
-					rule.subrules[i] = self._explore_statistics_tree(data_splits[i], matches, neigh_id, split_criteria, split_level, split_vals)
+					update_s_v = split_vals[:]
+					update_s_v[-1] = new_split_vals[i]
+					rule.subrules[i] = self._explore_time_tree(data_splits[i], matches, neigh_id, split_criteria, update_s_v)
 
 				# go through all subrules and combine the intervals with equal rules
 
@@ -1645,23 +1648,22 @@ class Station(object):
 				# get the first subrule that is not None because to few data
 				# and take those rules values
 				# TODO:
-				sr_idx=0
-				rule.sr_idc.append(0)
-				while(sr_idx<len(rule.subrules)-1):
-					if(rule.subrules[sr_idx]==rule.subrules[sr_idx+1]):
-						rule.subrules.pop(sr_idx+1)
-						rule.sr_idc.append(sr_idx)
-					else:
-						sr_idx+=1
-						rule.subrules.pop(sr_idx+1)
+				# sr_idx=0
+				# rule.sr_idc.append(0)
+				# while(sr_idx<len(rule.subrules)-1):
+				# 	if(rule.subrules[sr_idx]==rule.subrules[sr_idx+1]):
+				# 		rule.subrules.pop(sr_idx+1)
+				# 		rule.sr_idc.append(sr_idx)
+				# 	else:
+				# 		sr_idx+=1
+				# 		rule.subrules.pop(sr_idx+1)
 
-				# if all subrules are the some 
-				if(len(rule.subrules)==1):
-					if(rule==rule.subrules[0]):
-						rule.subrules = None
-						rule.sr_idc = None
-					else:
-
+				# # if all subrules are the some 
+				# if(len(rule.subrules)==1):
+				# 	if(rule==rule.subrules[0]):
+				# 		rule.subrules = None
+				# 		rule.sr_idc = None
+				# 	else:
 
 		return rule
 		
@@ -1833,15 +1835,15 @@ class Station(object):
 			price_dif[i,2,:] = get_price_dif(self.pricing_mat[o+o_num],neigh.pricing_mat[l+l_num])
 
 			# for each gas check
-			for gas in range(len(GAS))
+			for gas in range(len(GAS)):
 				# price dif before the neighbors pricings and after those has changed
 				if(price_dif[i,0,gas]!=price_dif[i,1,gas]):
 					# add the gas respective value
-					changed+=math.pow(4,gas)
+					changed+=pow(4,gas)
 					# check further if the own pricing reseted the previous difference
 					if(price_dif[i,0,gas]==price_dif[i,2,gas]):
 						# add the gas respective value
-						reset_val += math.pow(4,gas)
+						reset_val += pow(4,gas)
 
 			# if all the prices that have been changed are resetted as well
 			if(changed==reset_val):
@@ -2198,7 +2200,7 @@ class Station(object):
 		# if the own one is nearer to the leader append the own one
 		if(t_dif>0):
 			# add it to the table
-			table_data.append([HTML.TableCell('own', bgcolor='#3bb300'), get_time(own_p[pa2i['time']],False),
+			table_data.append([HTML.TableCell('own', bgcolor='#3bb300'), get_date(own_p[pa2i['date']]), get_time(own_p[pa2i['time']],False),
 				d_dif, e5_dif, e10_dif,
 				own_p[pa2i['d_diesel']], own_p[pa2i['d_e5']], own_p[pa2i['d_e10']],
 				own_p[pa2i['diesel']], own_p[pa2i['e5']], own_p[pa2i['e10']]])
@@ -2206,7 +2208,7 @@ class Station(object):
 		# if the neighbors is nearer append this one
 		else:
 			# add it to the table
-			table_data.append([HTML.TableCell('neigh', bgcolor='#cc0000'), get_time(neigh_p[pa2i['time']],False),
+			table_data.append([HTML.TableCell('neigh', bgcolor='#cc0000'), get_date(neigh_p[pa2i['date']]), get_time(neigh_p[pa2i['time']],False),
 				d_dif, e5_dif, e10_dif,
 				neigh_p[pa2i['d_diesel']], neigh_p[pa2i['d_e5']], neigh_p[pa2i['d_e10']],
 				neigh_p[pa2i['diesel']], neigh_p[pa2i['e5']], neigh_p[pa2i['e10']]])
@@ -2219,7 +2221,7 @@ class Station(object):
 			# get the price difference to the last own
 			d_dif, e5_dif, e10_dif = get_price_dif(own_p, neigh_p)
 			# add it to the table
-			table_data.append([HTML.TableCell('neigh', bgcolor='#cc0000'), get_time(neigh_p[pa2i['time']],False),
+			table_data.append([HTML.TableCell('neigh', bgcolor='#cc0000'), get_date(neigh_p[pa2i['date']]), get_time(neigh_p[pa2i['time']],False),
 				d_dif, e5_dif, e10_dif,
 				neigh_p[pa2i['d_diesel']], neigh_p[pa2i['d_e5']], neigh_p[pa2i['d_e10']],
 				neigh_p[pa2i['diesel']], neigh_p[pa2i['e5']], neigh_p[pa2i['e10']]])
@@ -2232,7 +2234,7 @@ class Station(object):
 			# get the price difference to the last neighbor
 			d_dif, e5_dif, e10_dif = get_price_dif(own_p, neigh_p)
 			# add it to the table
-			table_data.append([HTML.TableCell('own', bgcolor='#3bb300'), get_time(own_p[pa2i['time']],False),
+			table_data.append([HTML.TableCell('own', bgcolor='#3bb300'), get_date(own_p[pa2i['date']]), get_time(own_p[pa2i['time']],False),
 				d_dif, e5_dif, e10_dif,
 				own_p[pa2i['d_diesel']], own_p[pa2i['d_e5']], own_p[pa2i['d_e10']],
 				own_p[pa2i['diesel']], own_p[pa2i['e5']], own_p[pa2i['e10']]])
@@ -2250,7 +2252,7 @@ class Station(object):
 			# get the price difference
 			d_dif, e5_dif, e10_dif = get_price_dif(own_p, neigh_p)
 			# add the neighbor to the table
-			table_data.append([HTML.TableCell('neigh', bgcolor='#cc0000'), get_time(neigh_p[pa2i['time']],False),
+			table_data.append([HTML.TableCell('neigh', bgcolor='#cc0000'), get_date(neigh_p[pa2i['date']]), get_time(neigh_p[pa2i['time']],False),
 				d_dif, e5_dif, e10_dif,
 				neigh_p[pa2i['d_diesel']], neigh_p[pa2i['d_e5']], neigh_p[pa2i['d_e10']],
 				neigh_p[pa2i['diesel']], neigh_p[pa2i['e5']], neigh_p[pa2i['e10']]])
@@ -2262,14 +2264,14 @@ class Station(object):
 			# get the price difference
 			d_dif, e5_dif, e10_dif = get_price_dif(own_p, neigh_p)
 			# add the own one to the table
-			table_data.append([HTML.TableCell('own', bgcolor='#3bb300'), get_time(own_p[pa2i['time']],False),
+			table_data.append([HTML.TableCell('own', bgcolor='#3bb300'), get_date(own_p[pa2i['date']]), get_time(own_p[pa2i['time']],False),
 				d_dif, e5_dif, e10_dif,
 				own_p[pa2i['d_diesel']], own_p[pa2i['d_e5']], own_p[pa2i['d_e10']],
 				own_p[pa2i['diesel']], own_p[pa2i['e5']], own_p[pa2i['e10']]])
 
 		# print the tabel with header to html table code
 		htmlcode = HTML.table(table_data,
-		    header_row = ['role', 'time',HTML.TableCell('dif', attribs={'colspan':3}),
+		    header_row = ['role', 'date', 'time',HTML.TableCell('dif', attribs={'colspan':3}),
 		    HTML.TableCell('changed', attribs={'colspan':3}), HTML.TableCell('price', attribs={'colspan':3})])
 		return htmlcode
 
@@ -2305,7 +2307,7 @@ class Station(object):
 		# the rows for the table
 		table_data = []
 		# add all own pricings
-		for i in range(o_num+1)
+		for i in range(o_num+1):
 			own_p = self.pricing_mat[o_idx+i]
 			table_data.append([HTML.TableCell('own', bgcolor='black'), get_time(own_p[pa2i['time']],False),
 				own_p[pa2i['d_diesel']], own_p[pa2i['d_e5']], own_p[pa2i['d_e10']],
@@ -2347,7 +2349,7 @@ class Rule(object):
 		'subrules', 'sr_idc',
 		'analysis_path')
 
-	def __init__(self, owner, competitor, split_criteria, split_level, split_vals, analysis_path):
+	def __init__(self, owner, competitor, split_criteria, split_vals, analysis_path):
 		"""
 		Initializes a rule.
 
@@ -2372,9 +2374,8 @@ class Rule(object):
 		self.owner = owner
 		self.competitor = competitor
 
-		self.split_criteria = split_criteria[0:split_level+1]
+		self.split_criteria = split_criteria
 		self.split_vals = split_vals
-		self.split_further = False
 
 		self.match_difs = None
 		self.miss_difs = None
@@ -2398,10 +2399,14 @@ class Rule(object):
 		@return rule_str: the rule's string
 		@dtype rule_str: string
 		"""
-		rule_str = split_criteria[0]+':'+str(split_vals[0])
-		for i in range(1,split_level+1):
-			rule_str += split_criteria[i]+':'+str(split_vals[i])
+		rule_str = self.split_criteria[0]+':'+str(self.split_vals[0])
+		for i in range(1,len(self.split_vals)):
+			rule_str += ('_'+self.split_criteria[i]+str(self.split_vals[i]))
 		return rule_str
+
+	def __eq__(self, other):
+		eq = self.max_p_dist == other.max_p_dist
+		return eq
 
 	def _write_stats_analysis(self):
 		# TODO
@@ -2420,12 +2425,6 @@ class Rule(object):
 		not followed 100% and just few instances where a real reaction occurs.
 		Thats why a html file is generated to print the outlier pricings to be able to check for inconsistencies.
 
-		As confidence value we want something like the percentage of the maximal difference from all
-		matches or misses respectively. However this should not be a linear function. The amount of the maximal
-		difference should be weighted much higher. For moderately high values of occurances there should
-		be a high total number to neglect this value as extreme values. Or to put it in slighly different way
-		the percentage needed to accept a value decreases with the total amount. 
-
 		@param matches: the leaders that are in this time interval
 		@dtype matches: list(Tuple(own_idx,neigh_idx,o_num,n_num))
 						- own_idx: the own pricing index
@@ -2441,138 +2440,166 @@ class Rule(object):
 
 		# get the owning station
 		own_station = STATION_DICT[self.owner]
+		neigh = STATION_DICT[self.competitor]
 
-		if(self.counts['data']>10):
-			# plot the dif barcharts
-			self._plot_match_miss_dif_hists()
+		# plot the dif barcharts
+		self._plot_match_miss_dif_hists()
 
-			# go into the competitors directory
-			filedir = join(self.analysis_path, station_to_string(self.competitor, False).replace(" ", "_"))
-			# create it if it doesn't exist
-			if(not(isdir(filedir))): os.makedirs(filedir)
-			# go into the difs_oulier directory where information about infrequent high values is stored.
-			filedir = join(filedir, "difs_outlier")
-			# create the directory if it doesn't exist
-			if(not(isdir(filedir))): os.makedirs(filedir)
-			# open a file with the name of the rule
-			file_name = str(self) + '.html'
-			f = open(join(filedir,file_name), 'w')
+		# go into the competitors directory
+		filedir = join(self.analysis_path, str(neigh).replace(" ", "_"))
+		# create it if it doesn't exist
+		if(not(isdir(filedir))): os.makedirs(filedir)
+		# go into the difs_oulier directory where information about infrequent high values is stored.
+		filedir = join(filedir, "difs_outlier")
+		# create the directory if it doesn't exist
+		if(not(isdir(filedir))): os.makedirs(filedir)
+		# open a file with the name of the rule
+		file_name = str(self) + '.html'
+		f = open(join(filedir,file_name), 'w')
 
-			# write a header
-			f.write(html_intro("difs_outlier in rule: " + str(self)))
+		# write a header
+		f.write(html_intro("difs_outlier in rule: " + str(self)))
 
-			# initialize list for the maximal and modal values
-			max_tup_after_react = []
-			max_tup_after_unreacted = []
-			mod_tup_after_react = []
-			mod_tup_after_unreacted  = []
+		# initialize list for the maximal and modal values
+		max_tup_after_react = []
+		max_tup_after_unreacted = []
+		mod_tup_after_react = []
+		mod_tup_after_unreacted  = []
 
-			# treat each gas seperatedly
-			for gas in range(0,len(GAS)):
-				# write the gas into the file
-				f.write(html_heading(1, GAS[gas]))
-				# get the match dif values and counts
-				unique, counts = np.unique(self.match_difs[:,2,gas], return_counts=True)
-				# the maximal value is at the end
-				r_idx = len(unique)-1
-				max_tup_after_react.append((unique[r_idx], counts[r_idx]))
-				# get the modal value 
-				mod_idx = np.argmax(counts)
-				mod_tup_after_react.append((unique[mod_idx], counts[mod_idx]))
+		# treat each gas seperatedly
+		for gas in range(0,len(GAS)):
+			# write the gas into the file
+			f.write(html_heading(1, GAS[gas]))
+			# get the match dif values and counts
+			unique, counts = np.unique(self.match_difs[:,2,gas], return_counts=True)
+			# the maximal value is at the end
+			r_idx = len(unique)-1
+			max_tup_after_react.append((unique[r_idx], counts[r_idx]))
+			# get the modal value 
+			mod_idx = np.argmax(counts)
+			mod_tup_after_react.append((unique[mod_idx], counts[mod_idx]))
 
-				# do the same for the pricings without reaction
-				unique2, counts2 = np.unique(self.miss_difs[:,gas], return_counts=True)
-				unr_idx = len(unique2)-1
-				max_tup_after_unreacted.append((unique2[unr_idx], counts2[unr_idx]))
-				mod_idx2 = np.argmax(counts2)
-				mod_tup_after_unreacted.append((unique2[mod_idx], counts2[mod_idx]))
+			# do the same for the pricings without reaction
+			unique2, counts2 = np.unique(self.miss_difs[:,gas], return_counts=True)
+			unr_idx = len(unique2)-1
+			max_tup_after_unreacted.append((unique2[unr_idx], counts2[unr_idx]))
+			mod_idx2 = np.argmax(counts2)
+			mod_tup_after_unreacted.append((unique2[mod_idx], counts2[mod_idx]))
 
-				# get the combined confidence value of the maxvalues with good single confidence values
-				comb_conf = 0
-				while(comb_conf<0.5 and (r_idx>=mod_idx or unr_idx>=mod_idx)):
+			f.write(html_heading(2, "After own reset"))
+			for ext_idx in range(mod_idx+1,len(unique)):
+				f.write(html_heading(3, "dif: " + str(unique[ext_idx]) + "\tcount: " + str(counts[ext_idx])))
+				outlier = [i for i in range(0,self.counts['match']) if self.match_difs[i,2,gas]==unique[ext_idx]]
+				for idx in outlier:
+					f.write(own_station._get_leader_env_as_html_table(self.competitor, matches[idx]))
+					f.write('<br>')
 
-					# compute the single confidence values
-					react_conf = math.tanh(float(math.pow(max_tup_after_react[gas][1],3))/self.counts['match'])
-					unreac_conf = math.tanh(float(math.pow(max_tup_after_unreacted[gas][1],3))/self.counts['miss'])
+			f.write(html_heading(2, "After unreacted pricing"))
+			for ext_idx in range(mod_idx2+1,len(unique2)):
+				f.write(html_heading(3, "dif: " + str(unique2[ext_idx]) + "\tcount: " + str(counts2[ext_idx])))
+				outlier = [i for i in range(0,self.counts['miss']) if self.miss_difs[i,gas]==unique2[ext_idx]]
+				for idx in outlier:
+					f.write(own_station._get_leader_env_as_html_table(self.competitor, (misses[idx][0]+1, misses[idx][1],0,0)))
+					f.write('<br>')
 
-					# while react max value is higher than the unreact value and the confidence value is too low
-					# take the next value
-					while(react_conf<0.5 and max_tup_after_unreacted[gas][0]<max_tup_after_react[gas][0] and r_idx>mod_idx):
-						# write the outliers to file
-						f.write(html_heading(2, "After own reset"))
-						f.write(html_heading(3, "dif: " + str(unique[r_idx]) + "\tcount: " + str(counts[r_idx]) + "\tconf: " + str(react_conf)))
-						outlier = [i for i in range(0,self.counts['match']) if self.match_difs[i,2,gas]==unique[r_idx]]
-						for idx in outlier:
-							f.write(own_station._leader_n_idx_to_html_table(self.competitor, matches[idx]))
-							f.write('<br>')
+			f.write(html_end())
+			# get the combined confidence value of the maxvalues with good single confidence values
+			# comb_conf = 0
+			# while(comb_conf<0.5 and (r_idx>=mod_idx or unr_idx>=mod_idx)):
 
-						# get the next conf value
-						r_idx-=1
-						max_tup_after_react[gas] = (unique[r_idx], counts[r_idx])
-						react_conf = math.tanh(float(math.pow(max_tup_after_react[gas][1],3))/self.counts['match'])
+			# 	# compute the single confidence values
+			# 	react_conf = self._comp_conf(max_tup_after_react[gas][1],self.counts['match'])
+			# 	unreac_conf = self._comp_conf(max_tup_after_unreacted[gas][1],self.counts['miss'])
 
-					# the other way around
-					while(unreac_conf<0.5 and max_tup_after_unreacted[gas][0]>max_tup_after_react[gas][0] and unr_idx>mod_idx2):
-						# write the outliers to file
-						f.write(html_heading(2, "After unreacted pricing"))
-						f.write(html_heading(3, "dif: " + str(unique2[unr_idx]) + "\tcount: " + str(counts2[unr_idx]) + "\tconf: " + str(unreacted_conf)))
-						outlier = [i for i in range(0,self.counts['miss']) if self.miss_difs[i,gas]==unique2[unr_idx]]
-						for idx in outlier:
-							f.write(own_station._leader_n_idx_to_html_table(self.competitor, (misses[idx][0], misses[idx][1],0,0)))
-							f.write('<br>')
+			# 	# while react max value is higher than the unreact value and the confidence value is too low
+			# 	# take the next value
+			# 	while(react_conf<0.5 and max_tup_after_unreacted[gas][0]<max_tup_after_react[gas][0] and r_idx>mod_idx):
+			# 		# write the outliers to file
+			# 		# f.write(html_heading(2, "After own reset"))
+			# 		# f.write(html_heading(3, "dif: " + str(unique[r_idx]) + "\tcount: " + str(counts[r_idx]) + "\tconf: " + str(react_conf)))
+			# 		# outlier = [i for i in range(0,self.counts['match']) if self.match_difs[i,2,gas]==unique[r_idx]]
+			# 		# for idx in outlier:
+			# 		# 	f.write(own_station._leader_n_idx_to_html_table(self.competitor, matches[idx]))
+			# 		# 	f.write('<br>')
 
-						# get the next conf value
-						unr_idx-=1
-						max_tup_after_unreacted[gas] = (unique2[unr_idx], counts2[unr_idx])
-						unreac_conf = math.tanh(float(math.pow(max_tup_after_unreacted[gas][1],3))/self.counts['miss'])
+			# 		# get the next conf value
+			# 		r_idx-=1
+			# 		max_tup_after_react[gas] = (unique[r_idx], counts[r_idx])
+			# 		react_conf = self._comp_conf(max_tup_after_react[gas][1],self.counts['match'])
 
-					# if the maximum values match compute the combined confidence value
-					if(max_tup_after_unreacted[gas][0]==max_tup_after_react[gas][0]):
-						comb_cnt = max_tup_after_react[gas][1]+max_tup_after_unreacted[gas][1]
-						comb_conf = math.tanh(float(math.pow(comb_cnt,3))/(self.counts['match']+self.counts['miss']))
-						# if the value is higher than 50% set the stats and finish
-						if(comb_conf>0.5):
-							# set the threshold
-							self.max_p_dist[gas] = max_tup_after_react[gas][0]
-							# the thresholds match
-							consistent[gas] = True
-							# set the conf value
-							self.conf[gas] = comb_conf
-							break
-					# otherwise
-					else:
-						# get the higher value because we need to consider the highest value
-						higher_val = max(max_tup_after_react[gas][0],max_tup_after_unreacted[gas][0])
-						# get the counts for this value each
-						# if one doesn't contain this value take zero 
-						try:
-							match_cnt = counts[unique.index(higher_val)]
-						except ValueError:
-							match_cnt = 0
-						try:
-							miss_cnt = counts2[unique2.index(higher_val)]
-						except ValueError:
-							miss_cnt = 0
-						# get the combined confidence value
-						comb_cnt = match_cnt+miss_cnt
-						comb_conf = math.tanh(float(math.pow(comb_cnt,3))/(self.counts['match']+self.counts['miss']))
-						# if the value is higher than 50% set the stats and finish
-						if(comb_conf>0.5):
-							# set the threshold
-							self.max_p_dist[gas] = max_tup_after_react[gas][0]
-							# the thresholds do not match
-							consistent[gas] = False
-							# set the conf value
-							self.conf[gas] = comb_conf
-							break
+			# 	# the other way around
+			# 	while(unreac_conf<0.5 and max_tup_after_unreacted[gas][0]>max_tup_after_react[gas][0] and unr_idx>mod_idx2):
+			# 		# write the outliers to file
+			# 		# f.write(html_heading(2, "After unreacted pricing"))
+			# 		# f.write(html_heading(3, "dif: " + str(unique2[unr_idx]) + "\tcount: " + str(counts2[unr_idx]) + "\tconf: " + str(unreacted_conf)))
+			# 		# outlier = [i for i in range(0,self.counts['miss']) if self.miss_difs[i,gas]==unique2[unr_idx]]
+			# 		# for idx in outlier:
+			# 		# 	f.write(own_station._leader_n_idx_to_html_table(self.competitor, (misses[idx][0], misses[idx][1],0,0)))
+			# 		# 	f.write('<br>')
 
-				if(not(self.consistent)):
-					comb_cnt = max_tup_after_react[gas][1]+max_tup_after_unreacted[gas][1]
-					self.conf[gas] = math.tanh(float(math.pow(comb_cnt,3))/(self.counts['match']+self.counts['miss']))
-				else:
-					self.mean_rtime[gas], self.dev_rtime[gas] = self._get_mean_and_dev_r_time(matches,gas):
+			# 		# get the next conf value
+			# 		unr_idx-=1
+			# 		max_tup_after_unreacted[gas] = (unique2[unr_idx], counts2[unr_idx])
+			# 		unreac_conf = self._comp_conf(max_tup_after_unreacted[gas][1],self.counts['miss'])
 
-				f.write(html_end())
+			# 	# if the maximum values match compute the combined confidence value
+			# 	if(max_tup_after_unreacted[gas][0]==max_tup_after_react[gas][0]):
+			# 		comb_cnt = max_tup_after_react[gas][1]+max_tup_after_unreacted[gas][1]
+			# 		comb_conf = math.tanh(float(math.pow(comb_cnt,3))/(self.counts['match']+self.counts['miss']))
+			# 		# if the value is higher than 50% set the stats and finish
+			# 		if(comb_conf>0.5):
+			# 			# set the threshold
+			# 			self.max_p_dist[gas] = max_tup_after_react[gas][0]
+			# 			# the thresholds match
+			# 			consistent[gas] = True
+			# 			# set the conf value
+			# 			self.conf[gas] = comb_conf
+			# 			self.counts['conf_count'] = comb_cnt
+			# 			self.mean_rtime[gas], self.dev_rtime[gas] = self._get_mean_and_dev_r_time(matches,gas):
+			# 			break
+			# 		else:
+			# 			# if we can not take the rule proceed and decrease each value if the confidence value isn't sufficient
+			# 			if(unreac_conf<0.5):
+			# 				unr_idx-=1
+			# 				max_tup_after_unreacted[gas] = (unique2[unr_idx], counts2[unr_idx])
+			# 			if(react_conf<0.5):
+			# 				r_idx-=1
+			# 				max_tup_after_react[gas] = (unique[r_idx], counts[r_idx])
+			# 	# otherwise
+			# 	else:
+			# 		if(max_tup_after_unreacted[gas][0]>max_tup_after_react[gas][0]):
+			# 			count = max_tup_after_unreacted[gas][1]]
+			# 			conf = unreac_conf
+			# 		else:
+			# 			count = max_tup_after_react[gas][1]
+			# 			conf = react_conf
+			# 		if(conf>0.5):
+			# 			# there is no consistent threshold
+			# 			self.max_p_dist[gas] = None
+			# 			# the thresholds do not match
+			# 			consistent[gas] = False
+			# 			# set the conf value
+			# 			self.conf[gas] = comb_conf
+			# 			self.counts['conf_count'] = comb_cnt
+			# 			break
+			# 		else:
+			# 			# 
+			# 			if(max_tup_after_unreacted[gas][0]>max_tup_after_react[gas][0]):
+			# 				unr_idx-=1
+			# 				max_tup_after_unreacted[gas] = (unique2[unr_idx], counts2[unr_idx])
+			# 			else:
+			# 				r_idx-=1
+			# 				max_tup_after_react[gas] = (unique[r_idx], counts[r_idx])
+
+			# 	# if we reach this position there was no 
+			# 	if(max_tup_after_unreacted[gas][0]>max_tup_after_react[gas][0]):
+			# 		unr_idx-=1
+			# 		max_tup_after_unreacted[gas] = (unique2[unr_idx], counts2[unr_idx])
+			# 	else:
+			# 		r_idx-=1
+			# 		max_tup_after_react[gas] = (unique[r_idx], counts[r_idx])
+
+			# f.write(html_end())
 		return
 
 	def _get_mean_and_dev_r_time(self, matches, gas):
@@ -2642,7 +2669,7 @@ class Rule(object):
 		# generate a afigure
 		fig = plt.figure()
 		# add the rule as subtitle
-		fig.suptitle(str(self))
+		fig.suptitle(str(self),fontsize=20, weight='bold')
 
 		# go through all gases
 		for gas in range(0,3):
@@ -2651,80 +2678,122 @@ class Rule(object):
 			# get the match and miss differences and their counts
 			unique_match, counts_match = np.unique(self.match_difs[:,2,gas], return_counts=True)
 			unique_miss, counts_miss = np.unique(self.miss_difs[:,gas], return_counts=True)
-			
+			unique_comb = np.unique(np.concatenate((unique_match,unique_miss),axis=0))
 			# we need to have a value for each difference appearing in one of the lists
 			# therefore we need to fuse the unique values and update the counts
-
-			# indices for the lists
 			u_ma = 0
 			u_mi = 0
-			# new counts
-			match_c = []
-			miss_c = []
-			# new differences
-			x_labels = []
-			# go through the lists until one end is reached
-			while(u_ma<len(unique_match) and u_mi<len(unique_miss)):
-				# if the differences match add the values of both
-				if(unique_match[u_ma]==unique_miss[u_mi]):
-					match_c.append(counts_match[u_ma])
-					miss_c.append(counts_miss[u_mi])
-					x_labels.append(unique_match[u_ma])
-					u_ma+=1
-					u_mi+=1
-				# if match is lower add the match and a zero for miss
-				elif(unique_match[u_ma]<unique_miss[u_mi]):
-					match_c.append(counts_match[u_ma])
-					miss_c.append(0)
-					x_labels.append(unique_match[u_ma])
-					u_ma+=1
-				# if miss is lower add the miss and a zero for match
-				else:
-					miss_c.append(counts_miss[u_mi])
-					match_c.append(0)
-					x_labels.append(unique_miss[u_mi])
-					u_mi+=1
-			# when there are matches left add them and zeros for misses
+			match_c = np.zeros((len(unique_comb),))
+			miss_c = np.zeros((len(unique_comb),))
+			i = 0
 			while(u_ma<len(unique_match)):
-				match_c.append(counts_match[u_ma])
-				miss_c.append(0)
-				x_labels.append(unique_match[u_ma])
-				u_ma+=1
-			# when there are misses left add them and zeros for matches
+				if(unique_comb[i]==unique_match[u_ma]):
+					match_c[i] = counts_match[u_ma]
+					u_ma+=1
+				i+=1
+			i = 0
 			while(u_mi<len(unique_miss)):
-				miss_c.append(counts_miss[u_mi])
-				match_c.append(0)
-				x_labels.append(unique_miss[u_mi])
-				u_mi+=1
+				if(unique_comb[i]==unique_miss[u_mi]):
+					miss_c[i] = counts_miss[u_mi]
+					u_mi+=1
+				i+=1
+
+			x_labels = unique_comb
+
+
+
+			# # indices for the lists
+			# u_ma = 0
+			# u_mi = 0
+			# # new counts
+			# match_c = []
+			# miss_c = []
+			# # new differences
+			# x_labels = []
+
+
+			# # go through the lists until one end is reached
+			# while(u_ma<len(unique_match) and u_mi<len(unique_miss)):
+			# 	# if the differences match add the values of both
+			# 	if(unique_match[u_ma]==unique_miss[u_mi]):
+			# 		match_c.append(counts_match[u_ma])
+			# 		miss_c.append(counts_miss[u_mi])
+			# 		x_labels.append(unique_match[u_ma])
+			# 		u_ma+=1
+			# 		u_mi+=1
+			# 	# if match is lower add the match and a zero for miss
+			# 	elif(unique_match[u_ma]<unique_miss[u_mi]):
+			# 		match_c.append(counts_match[u_ma])
+			# 		miss_c.append(0)
+			# 		x_labels.append(unique_match[u_ma])
+			# 		u_ma+=1
+			# 	# if miss is lower add the miss and a zero for match
+			# 	else:
+			# 		miss_c.append(counts_miss[u_mi])
+			# 		match_c.append(0)
+			# 		x_labels.append(unique_miss[u_mi])
+			# 		u_mi+=1
+			# # when there are matches left add them and zeros for misses
+			# while(u_ma<len(unique_match)):
+			# 	match_c.append(counts_match[u_ma])
+			# 	miss_c.append(0)
+			# 	x_labels.append(unique_match[u_ma])
+			# 	u_ma+=1
+			# # when there are misses left add them and zeros for matches
+			# while(u_mi<len(unique_miss)):
+			# 	miss_c.append(counts_miss[u_mi])
+			# 	match_c.append(0)
+			# 	x_labels.append(unique_miss[u_mi])
+			# 	u_mi+=1
+
+			# set title of the axe
+			ax.set_title(GAS[gas],fontsize=20, position=(0.5,1.0), weight='bold')
 
 			# widt of a bar
-			width = 0.35
-			# number of bars
-			ind = np.arange(len(match_c))
-			# generate the bars with (postion, values, width, color)
+			width = 0.4
+			# x position of the bars
+			ind = np.arange(len(match_c))+(width/2)
+			if(len(match_c)<=3):
+				ax.set_xlim(0,5)
+				ind+=1.0
+			# generate the bars with (x position, height, width, color)
 			rects1 = ax.bar(ind, match_c, width, color='red')
 			rects2 = ax.bar(ind+width, miss_c, width, color='green')
 
-			# set labels of teh axes
-			ax.set_ylabel('counts')
-			ax.set_xlabel('dif',ha='right')
-			# set title of the axe
-			ax.set_title(GAS[gas])
-
-			# set the position and names of the x ticks
+			# setup and format the x axis
+			# give it a label
+			ax.set_xlabel('price_dif',fontsize=16, position=(1.05,-0.1))
+			# give it ticks and names
 			ax.set_xticks(ind + width)
 			xtickNames = ax.set_xticklabels(x_labels)
-			# format the x ticks
-			plt.setp(xtickNames, rotation=60, fontsize=8)
+			# format the ticks
+			plt.setp(xtickNames, fontsize=16, weight='bold')
 
+			# setup and format the y axis
+			# give it a label
+			ax.set_ylabel('counts',fontsize=16, position=(0,1.0))
+			#reevaluate the ytick positions
+			max_val = max(max(miss_c), max(match_c))
+			ytickpos = ax.get_yticks()
+			if(len(ytickpos)-2>4):
+				ytickpos = ytickpos[::2]
+				ytickpos = np.append(ytickpos,[ytickpos[-1]+ytickpos[1]])
+			if(max_val/ytickpos[-1]>0.95):
+				ytickpos = np.append(ytickpos,[ytickpos[-1]+ytickpos[1]])
+			ax.set_yticks(ytickpos)
+			# format the y ticks
+			plt.setp(ax.get_yticklabels(), fontsize=16, weight='bold')
+
+			# label the bars
 			label_barchart_rects(rects1,ax)
 			label_barchart_rects(rects2,ax)
 
-			# add a legend
-			ax.legend((rects1[0], rects2[0]), ('dif after reset', 'dif not reacted'))
 		
-		# plt.show()
-		fig.tight_layout()
+		# add a legend
+		legend = plt.figlegend((rects1[0], rects2[0]), ('dif after reaction', 'dif not reacted'), loc='lower center')
+		for label in legend.get_texts():
+			label.set_fontsize(20)
+			label.set_weight('bold')
 
 		# save the figure
 		station = STATION_DICT[self.competitor]
@@ -2738,10 +2807,39 @@ class Rule(object):
 		if(not(isdir(filedir))): os.makedirs(filedir)
 		# create a file for the barchart with the name of the rule
 		file_name = str(self)
+		dpi = fig.get_dpi()
+		fig.set_size_inches(1920.0/float(dpi),1080.0/float(dpi))
+		plt.subplots_adjust(top=0.85, bottom=0.12, left= 0.05, right=0.95, hspace=0.2, wspace=0.2)
 		fig.savefig(join(filedir,file_name))
 		plt.close(fig)
 
 		return
+
+	def _comp_conf(self,x,y):
+		"""
+		Computes the confidence value for for a rule. It compares the pricings that support this exact rule
+		to the total amount of pricings in this time category.
+		As confidence value we want something like the percentage of the maximal difference from all
+		matches or misses respectively. However this should not be a linear function. The amount of the maximal
+		difference should be weighted much higher. For moderately high values of occurances there should
+		be a high total number to neglect this value as extreme values. Or to put it in slighly different way
+		the percentage needed to accept a value decreases with the total amount. 
+		Additionally we want to scale the value into the range of 0 to 1 to express the condifence as a percentage.
+		Function: 2/pi*atan(2* (x²/y))
+
+
+		@param x: the supporting fraction
+		@dtype x: int
+
+		@param y: the total amount
+		@dtype y: int
+
+		@return conf: the confidence value as percentage
+		@dtype conf: float
+		"""
+
+		conf = (2/pi)*atan(float(pow(x,2))/y)
+		return conf
 
 
 ######### Pricing related helping-functions ##########
@@ -3149,19 +3247,19 @@ def get_colors(color_num):
 	@return colors: the color values returned
 	@dtype colors: list(String)
 	"""
-
-    colors=[]
-    # divide 360 by the number of colors and go in those steps from 0 to 360
-    for i in np.arange(0., 360., 360. / color_num):
-    	# get the percentage value of the hue
-        hue = i/360.
-        # get a random lightness value higher than 50
-        lightness = (50 + np.random.rand() * 10)/100.
-        # get a random saturation value higher than 90
-        saturation = (90 + np.random.rand() * 10)/100.
-        # get rbg value ffrom the values above and append it
-        colors.append(colorsys.hls_to_rgb(hue, lightness, saturation))
-    return colors
+	
+	colors=[]
+	# divide 360 by the number of colors and go in those steps from 0 to 360
+	for i in np.arange(0., 360., 360. / color_num):
+		# get the percentage value of the hue
+		hue = i/360.
+		# get a random lightness value higher than 50
+		lightness = (50 + np.random.rand() * 10)/100.
+		# get a random saturation value higher than 90
+		saturation = (90 + np.random.rand() * 10)/100.
+		# get rbg value ffrom the values above and append it
+		colors.append(colorsys.hls_to_rgb(hue, lightness, saturation))
+	return colors
 
 def html_intro(page_title):
 	"""
@@ -3213,9 +3311,19 @@ def label_barchart_rects(rects, ax):
 		# get the height
 		height = rect.get_height()
 		# add the label at right above the center of the rect
-		ax.text(rect.get_x() + rect.get_width()/2., 1.05*height,
+		ax.text(rect.get_x() + rect.get_width()/2., 1.0*height,
 				'%d' % int(height),
-				ha='center', va='bottom')
+				ha='center', va='bottom', fontsize=16)
+
+# def set_date_span():
+# 	# get the first and the last date in the pricing history
+# 	CURSOR.execute('SELECT date from gas_station_information_history ORDER BY date')
+# 	INIT_DATE = CURSOR.fetchone()[0]
+# 	CURSOR.execute('SELECT date from gas_station_information_history ORDER BY date DESC')
+# 	END_DATE = CURSOR.fetchone()[0]
+
+# 	print(INIT_DATE)
+# 	print(END_DATE)
 
 if __name__ == "__main__":
 	con = None
@@ -3225,15 +3333,20 @@ if __name__ == "__main__":
 
 	berlin = pytz.timezone('Etc/GMT-2')
 
-	from_date = datetime(2016,1,1).date()
-	to_date = datetime(2016,4,10).date()
+	yesterday = datetime.now().date()-timedelta(days=1)
+	three_month_ago = datetime.now().date()-timedelta(days=91)
+
+	from_date = three_month_ago
+	to_date = yesterday
 
 	ana_day = datetime(2016,2,24).date()
 	# set_global_d_int(from_date, to_date)
 	try:
-		con = psycopg2.connect(database='pricing', user='kai', password='Sakral8!')
+		con = psycopg2.connect(database='pricing_31_8_16', user='kai', password='Sakral8!')
+		# con = psycopg2.connect(database='postgres', user='postgres', password='Dc6DP5RU', host='10.1.10.1', port='5432')
 		CURSOR = con.cursor()
 		STATION_DICT = get_station_dict()
+
 		# plot_pricing_month_hist()
 
 		CURSOR.execute("SELECT id FROM gas_station WHERE post_code=%s AND brand=%s"  ,(plz_osnabrueck,"Q1"))
@@ -3247,7 +3360,7 @@ if __name__ == "__main__":
 		# station.day_analysis(ana_day)
 		# pause()
 
-		station.get_competition(d_int=(from_date,to_date),lead_t=2700,split_criteria=['all','we','dow'])
+		station.get_competition(d_int=(from_date,to_date),lead_t=2700,split_criteria=['all'])
 
 		# station.check_Granger_Causality()
 
