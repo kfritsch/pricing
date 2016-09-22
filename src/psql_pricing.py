@@ -4,9 +4,10 @@ from os.path import join, realpath, dirname, isdir
 
 # the module path is the path to the project folder
 # beeing the parent folder of the folder of this file
+SRC_PATH = dirname(realpath(__file__))
 MODUL_PATH = join(dirname(realpath(__file__)), os.pardir)
 # the analysis_docs path is the projects subfolder for outputs to be analysed
-ANALYSIS_PATH = join(MODUL_PATH, "analysis_docs")
+ANALYSIS_PATH = join(join(MODUL_PATH,os.pardir), "analysis_docs")
 
 # python postgres api
 import psycopg2
@@ -29,6 +30,8 @@ import HTML
 
 # import warnings
 # warnings.simplefilter("error")
+TESTING_DATA = {}
+
 
 # dict from station_id to station instance
 STATION_DICT = None
@@ -4306,10 +4309,10 @@ if __name__ == "__main__":
 
 
 			# get the stations competition
-			print('getting the stations competition')
-			station.get_competition(d_int=(from_date,to_date),lead_t=2700,split_criteria=['all'])
+			# print('getting the stations competition')
+			# station.get_competition(d_int=(from_date,to_date),lead_t=2700,split_criteria=['all'])
 			# PAUSE:
-			# pause()
+			pause()
 
 			# station.check_Granger_Causality()
 
