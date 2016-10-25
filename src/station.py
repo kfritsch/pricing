@@ -614,6 +614,7 @@ class Station(object):
 			if(neigh.pricing_mat is None or len(neigh.pricing_mat)<len(self.pricing_mat)/10):
 				self.neighbors.pop(i)
 
+		print("loaded all data")
 		# get all related pricing pairs (related means close in time)
 		self._get_neighbor_related_pricings(t_int=lead_t)
 
