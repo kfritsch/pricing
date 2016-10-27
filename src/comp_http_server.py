@@ -27,6 +27,9 @@ from helper_functions import *
 from pricing_helper_functions import *
 import comp_config_handler as cf
 
+from multiprocessing import Pool
+import cProfile
+
 import codecs, json
 
 pg_params = None
@@ -69,6 +72,25 @@ class My_HTTP_Request_Handler(BaseHTTPRequestHandler):
 
 			# get the stations competition
 			print('getting the stations competition')
+
+			# pool = Pool()
+			# pool.map(station.get_competition, (d_int,
+			# 	comp_params['lead_t'],
+			# 	(comp_params['n_max_range'],comp_params['n_min_num'],comp_params['n_max_num']),
+			# 	comp_params['one_rule'],
+			# 	comp_params['com_conf_div'],
+			# 	comp_params['hour_min'],
+			# 	comp_params['rule_conf'],
+			# 	comp_params['com_conf']))
+
+			# station.c_profile_competition(d_int=d_int,
+			# 	lead_t=comp_params['lead_t'],
+			# 	n_vals=(comp_params['n_max_range'],comp_params['n_min_num'],comp_params['n_max_num']),
+			# 	one_rule=comp_params['one_rule'],
+			# 	com_conf_div=comp_params['com_conf_div'],
+			# 	hour_min=comp_params['hour_min'],
+			# 	rule_conf=comp_params['rule_conf'],
+			# 	com_conf=comp_params['com_conf'])
 
 			station.get_competition(d_int=d_int,
 				lead_t=comp_params['lead_t'],

@@ -17,7 +17,7 @@ import pytz
 import numpy as np
 from datetime import datetime, timedelta, time
 from scipy import stats
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 
 # python 
 from geopy.geocoders import Nominatim
@@ -28,6 +28,8 @@ import HTML, codecs, json
 import pricing_globals
 from helper_functions import *
 from pricing_helper_functions import *
+
+import cProfile
 
 # import warnings
 # warnings.simplefilter("error")
@@ -614,7 +616,9 @@ class Station(object):
 			if(neigh.pricing_mat is None or len(neigh.pricing_mat)<len(self.pricing_mat)/10):
 				self.neighbors.pop(i)
 
-		print("loaded all data")
+		# # PRINT:
+		# print("loaded all data")
+
 		# get all related pricing pairs (related means close in time)
 		self._get_neighbor_related_pricings(t_int=lead_t)
 
@@ -635,8 +639,8 @@ class Station(object):
 
 			# if(neigh_id!="30d8de2f-7728-4328-929f-b45ff1659901"): continue
 
-			# PRINT: the current station as string
-			print(print_bcolors(["OKBLUE","BOLD","UNDERLINE"],"\n"+str(neigh)+"\n"))
+			# # PRINT: the current station as string
+			# print(print_bcolors(["OKBLUE","BOLD","UNDERLINE"],"\n"+str(neigh)+"\n"))
 			# get the pricings without reaction of this station
 
 			# reset the anaylis_path and add the competitor first before adding the time interval again
@@ -703,14 +707,16 @@ class Station(object):
 				gas_rule_days = comb_rule_days[:]
 				gas_rule_hours = comb_rule_hours[:]
 
-				# create a file to save irregularities
-				file_name = GAS[gas] + "_rule_outlier" + '.html'
-				f = open(join(self.analysis_path,file_name), 'w')
-				f.write(html_intro(GAS[gas] + " rule exceptions"))
-				f.write("<style>\n")
-				f.write(".floating-box {display: inline-block;margin-top: 20px;margin-bottom: 20px;border: 3px solid #000000;}\n")
-				f.write("</style>\n")
-				f.write("<center>\n")
+				# # PLOT:
+				# # create a file to save irregularities
+				# file_name = GAS[gas] + "_rule_outlier" + '.html'
+				# f = open(join(self.analysis_path,file_name), 'w')
+				# f.write(html_intro(GAS[gas] + " rule exceptions"))
+				# f.write("<style>\n")
+				# f.write(".floating-box {display: inline-block;margin-top: 20px;margin-bottom: 20px;border: 3px solid #000000;}\n")
+				# f.write("</style>\n")
+				# f.write("<center>\n")
+
 				# go through the possible rule distances starting from behind
 				dist_idx = len(dist_vals)-1
 				while((any(gas_rule_days) or any(gas_rule_hours)) and dist_idx>0):
@@ -744,7 +750,8 @@ class Station(object):
 						# write the pricings to a file for later checking
 						# write a intro
 
-						self._write_exception_table(f, neigh_id, dist_val, dist_reacts, dist_ignores, lead_t)
+						# # PLOT:
+						# self._write_exception_table(f, neigh_id, dist_val, dist_reacts, dist_ignores, lead_t)
 
 					# otherwise create a rule out of the distance
 					else:
@@ -776,7 +783,9 @@ class Station(object):
 						# # PRINT: rule hours to fill
 						# print(print_bcolors(['BOLD', 'OKGREEN'],str([i for i in range(len(rule.hour_rule)) if rule.hour_rule[i]])))
 						rule.check_automatism(dist_reacts)
-						rule.write_stats_analysis()
+
+						# # PLOT:
+						# rule.write_stats_analysis()
 						# add the evaluation data
 						# general rule data
 						eval_data[1] = np.append(eval_data[1], [rule.rule_data], axis=0)
@@ -789,9 +798,11 @@ class Station(object):
 
 					dist_idx-=1
 
-				f.write("</center>\n")
-				f.write(html_end())
-				f.close()
+				# # PLOT:
+				# f.write("</center>\n")
+				# f.write(html_end())
+				# f.close()
+
 				# the confidence value deciding if it is an competitor or not
 				competitor_conf = (float(gas_matches)/gas_drop_cnt) if(gas_matches>0) else 0
 				# decides if the confidence value is to be divided by the number of chosen rules
@@ -811,6 +822,9 @@ class Station(object):
 
 		# reset the analsis path
 		self.analysis_path = tmp_path
+
+	def c_profile_competition(self, d_int, lead_t=2700, n_vals=(5,5,20), one_rule=False, com_conf_div=False, hour_min=3, rule_conf=0.5, com_conf=0.03):
+		cProfile.runctx('self.get_competition(d_int, lead_t, n_vals, one_rule, com_conf_div, hour_min, rule_conf, com_conf)', globals(), locals())
 
 	def day_analysis(self, day):
 		'''
@@ -1019,17 +1033,18 @@ class Station(object):
 		# the pricing index
 		i=0
 
-		# create a file to explore larger reaction combinations for tha ba
-		file_dir = join(ANALYSIS_PATH,"TESTING_DATA")
-		if(not(isdir(file_dir))): os.makedirs(file_dir)
-		file_name = "complex_reaction_table" + '.html'
-		f = open(join(file_dir,file_name), 'w')
-		f.write(html_intro("Complex Reactions"))
-		f.write("<style>\n")
-		f.write(".floating-box {display: inline-block;margin-top: 20px;margin-bottom: 20px;border: 3px solid #000000;}\n")
-		f.write("</style>\n")
-		f.write("<center>\n")
-		f.write(html_heading(1, "Complex Reactions"))
+		# # PLOT
+		# # create a file to explore larger reaction combinations for tha ba
+		# file_dir = join(ANALYSIS_PATH,"TESTING_DATA")
+		# if(not(isdir(file_dir))): os.makedirs(file_dir)
+		# file_name = "complex_reaction_table" + '.html'
+		# f = open(join(file_dir,file_name), 'w')
+		# f.write(html_intro("Complex Reactions"))
+		# f.write("<style>\n")
+		# f.write(".floating-box {display: inline-block;margin-top: 20px;margin-bottom: 20px;border: 3px solid #000000;}\n")
+		# f.write("</style>\n")
+		# f.write("<center>\n")
+		# f.write(html_heading(1, "Complex Reactions"))
 
 		own_set_idx = []
 
@@ -1172,12 +1187,14 @@ class Station(object):
 									# 	print(pricing_to_string(self.pricing_mat[c_own_set_idx[odx]]))
 									# pause()
 									self._check_leader_single_multi(index, c_own_set_idx,own_set_alt, neigh_id, j)
-									# write to file for ba
-									f.write(html_heading(3, "single action multiple reactions"))
-									f.write("<div class=\"floating-box\">\n")
-									f.write(self._reaction_html_table_single(neigh_id, [c_own_set_idx[-1], index], t_int, ["last_reaction", "action", "reaction", "bet"]))
-									f.write("</div>\n")
-									f.write('<br>\n')
+
+									# # PLOT:
+									# # write to file for ba
+									# f.write(html_heading(3, "single action multiple reactions"))
+									# f.write("<div class=\"floating-box\">\n")
+									# f.write(self._reaction_html_table_single(neigh_id, [c_own_set_idx[-1], index], t_int, ["last_reaction", "action", "reaction", "bet"]))
+									# f.write("</div>\n")
+									# f.write('<br>\n')
 							else:
 								'''
 								IF THERE IS A SET OF LEADERS
@@ -1196,12 +1213,14 @@ class Station(object):
 									# print(pricing_to_string(self.pricing_mat[c_own_set_idx[0]]))
 									# pause()
 									self._check_leader_multi_single(neigh_set_idx, neigh_set_alt, neigh_set_time, c_own_set_idx[0], neigh_id, j)
-									# write to file for ba
-									f.write(html_heading(3, "multiple actions single reaction"))
-									f.write("<div class=\"floating-box\">\n")
-									f.write(self._reaction_html_table_single(neigh_id, [c_own_set_idx[0],neigh_set_idx[0]], t_int, ["reaction", "first_action", "bet", "action"]))
-									f.write("</div>\n")
-									f.write('<br>\n')
+
+									# # PLOT:
+									# # write to file for ba
+									# f.write(html_heading(3, "multiple actions single reaction"))
+									# f.write("<div class=\"floating-box\">\n")
+									# f.write(self._reaction_html_table_single(neigh_id, [c_own_set_idx[0],neigh_set_idx[0]], t_int, ["reaction", "first_action", "bet", "action"]))
+									# f.write("</div>\n")
+									# f.write('<br>\n')
 								else:
 									'''
 									IF THERE ARE SEVERAL OWN
@@ -1215,13 +1234,14 @@ class Station(object):
 									# 	print(pricing_to_string(self.pricing_mat[c_own_set_idx[odx]]))
 									# pause()
 
-									# write to file for ba
-									f.write(html_heading(3, "multiple actions multiple reactions"))
-									f.write("<div class=\"floating-box\">\n")
-									f.write(self._reaction_html_table_single(neigh_id, [c_own_set_idx[-1], neigh_set_idx[0]], t_int, ["last_reaction", "first_action", "reaction", "action"]))
-									f.write("</div>\n")
-									f.write('<br>\n')
-									self._check_leader_multi_multi2(neigh_set_idx, neigh_set_alt, neigh_set_time, c_own_set_idx[:], own_set_alt, neigh_id, j, t_int)
+									# # PLOT:
+									# # write to file for ba
+									# f.write(html_heading(3, "multiple actions multiple reactions"))
+									# f.write("<div class=\"floating-box\">\n")
+									# f.write(self._reaction_html_table_single(neigh_id, [c_own_set_idx[-1], neigh_set_idx[0]], t_int, ["last_reaction", "first_action", "reaction", "action"]))
+									# f.write("</div>\n")
+									# f.write('<br>\n')
+									# self._check_leader_multi_multi2(neigh_set_idx, neigh_set_alt, neigh_set_time, c_own_set_idx[:], own_set_alt, neigh_id, j, t_int)
 						# the potential cause has been treated and is not relevant any further
 						index+=1
 					# set this as new start index for following iterations
@@ -1245,7 +1265,8 @@ class Station(object):
 			# increase the own index that has been just treated 
 			i+=1
 
-		f.close()
+		# # PLOT
+		# f.close()
 		# # get a html output stating all causes for each pricing respectiely
 		# self._write_first_leader_analysis()
 
@@ -2823,60 +2844,61 @@ class Station(object):
 			else:
 				pricing_hist[p_time]+=1
 
-		fig = plt.figure()
-		ax = fig.add_subplot(111)
-		ax.set_title(title,fontsize=20, position=(0.5,1.0), weight='bold')
+		# # PLOT:
+		# fig = plt.figure()
+		# ax = fig.add_subplot(111)
+		# ax.set_title(title,fontsize=20, position=(0.5,1.0), weight='bold')
 
-		# widt of a bar
-		width = 1
-		# x position of the bars
-		ind = np.arange(len(pricing_hist))
+		# # widt of a bar
+		# width = 1
+		# # x position of the bars
+		# ind = np.arange(len(pricing_hist))
 
-		# generate the bars with (x position, height, width, color)
-		rects1 = ax.bar(ind, pricing_hist, width, color='blue')
-		rects2 = ax.bar(ind, raise_hist, width, color='red', bottom=pricing_hist)
+		# # generate the bars with (x position, height, width, color)
+		# rects1 = ax.bar(ind, pricing_hist, width, color='blue')
+		# rects2 = ax.bar(ind, raise_hist, width, color='red', bottom=pricing_hist)
 
-		# setup and format the x axis
-		# give it a label
-		ax.set_xlabel('time',fontsize=16, position=(1.05,-0.1))
-		# give it ticks and names
-		ax.set_xticks(ind + width/2)
-		xtickNames = ax.set_xticklabels(ind)
-		# format the ticks
-		plt.setp(xtickNames, fontsize=16, weight='bold')
+		# # setup and format the x axis
+		# # give it a label
+		# ax.set_xlabel('time',fontsize=16, position=(1.05,-0.1))
+		# # give it ticks and names
+		# ax.set_xticks(ind + width/2)
+		# xtickNames = ax.set_xticklabels(ind)
+		# # format the ticks
+		# plt.setp(xtickNames, fontsize=16, weight='bold')
 
-		# setup and format the y axis
-		# give it a label
-		ax.set_ylabel('counts',fontsize=16, position=(0,1.0))
-		#reevaluate the ytick positions
-		max_val = max(pricing_hist)
-		ytickpos = ax.get_yticks()
-		if(len(ytickpos)-2>4):
-			ytickpos = ytickpos[::2]
-			ytickpos = np.append(ytickpos,[ytickpos[-1]+ytickpos[1]])
-		if(max_val/ytickpos[-1]>0.95):
-			ytickpos = np.append(ytickpos,[ytickpos[-1]+ytickpos[1]])
-		ax.set_yticks(ytickpos)
-		# format the y ticks
-		plt.setp(ax.get_yticklabels(), fontsize=16, weight='bold')
+		# # setup and format the y axis
+		# # give it a label
+		# ax.set_ylabel('counts',fontsize=16, position=(0,1.0))
+		# #reevaluate the ytick positions
+		# max_val = max(pricing_hist)
+		# ytickpos = ax.get_yticks()
+		# if(len(ytickpos)-2>4):
+		# 	ytickpos = ytickpos[::2]
+		# 	ytickpos = np.append(ytickpos,[ytickpos[-1]+ytickpos[1]])
+		# if(max_val/ytickpos[-1]>0.95):
+		# 	ytickpos = np.append(ytickpos,[ytickpos[-1]+ytickpos[1]])
+		# ax.set_yticks(ytickpos)
+		# # format the y ticks
+		# plt.setp(ax.get_yticklabels(), fontsize=16, weight='bold')
 
-		# label the bars
-		label_barchart_rects2(rects1, pricing_hist+raise_hist, ax)
+		# # label the bars
+		# label_barchart_rects2(rects1, pricing_hist+raise_hist, ax)
 
-		# add a legend
-		legend = plt.figlegend((rects1[0], rects2[0]), ('decline', 'raise'), loc='lower center')
-		for label in legend.get_texts():
-			label.set_fontsize(20)
-			label.set_weight('bold')
+		# # add a legend
+		# legend = plt.figlegend((rects1[0], rects2[0]), ('decline', 'raise'), loc='lower center')
+		# for label in legend.get_texts():
+		# 	label.set_fontsize(20)
+		# 	label.set_weight('bold')
 
-		filedir = join(self.analysis_path, 'hour_distribution')
-		if(not(isdir(filedir))): os.makedirs(filedir)
-		file_name = title
-		dpi = fig.get_dpi()
-		fig.set_size_inches(1920.0/float(dpi),1080.0/float(dpi))
-		plt.subplots_adjust(top=0.85, bottom=0.12, left= 0.05, right=0.95)
-		fig.savefig(join(filedir,file_name))
-		plt.close(fig)
+		# filedir = join(self.analysis_path, 'hour_distribution')
+		# if(not(isdir(filedir))): os.makedirs(filedir)
+		# file_name = title
+		# dpi = fig.get_dpi()
+		# fig.set_size_inches(1920.0/float(dpi),1080.0/float(dpi))
+		# plt.subplots_adjust(top=0.85, bottom=0.12, left= 0.05, right=0.95)
+		# fig.savefig(join(filedir,file_name))
+		# plt.close(fig)
 
 		return pricing_hist, raise_hist
 
@@ -2898,51 +2920,53 @@ class Station(object):
 				p_time = int(own_p[pa2i['dow']])
 				pricing_hist[p_time]+=1
 
-		fig = plt.figure()
-		ax = fig.add_subplot(111)
-		ax.set_title("dow_distribution", fontsize=20, position=(0.5,1.0), weight='bold')
 
-		# widt of a bar
-		width = 1
-		# x position of the bars
-		ind = np.arange(len(pricing_hist))
+		# # PLOT:
+		# fig = plt.figure()
+		# ax = fig.add_subplot(111)
+		# ax.set_title("dow_distribution", fontsize=20, position=(0.5,1.0), weight='bold')
 
-		# generate the bars with (x position, height, width, color)
-		rects1 = ax.bar(ind, pricing_hist, width, color='blue')
+		# # widt of a bar
+		# width = 1
+		# # x position of the bars
+		# ind = np.arange(len(pricing_hist))
 
-		# setup and format the x axis
-		# give it a label
-		ax.set_xlabel('dow',fontsize=16, position=(1.05,-0.1))
-		# give it ticks and names
-		ax.set_xticks(ind + width/2)
-		xtickNames = ax.set_xticklabels(ind)
-		# format the ticks
-		plt.setp(xtickNames, fontsize=16, weight='bold')
+		# # generate the bars with (x position, height, width, color)
+		# rects1 = ax.bar(ind, pricing_hist, width, color='blue')
 
-		# setup and format the y axis
-		# give it a label
-		ax.set_ylabel('counts',fontsize=16, position=(0,1.0))
-		#reevaluate the ytick positions
-		max_val = max(pricing_hist)
-		ytickpos = ax.get_yticks()
-		if(len(ytickpos)-2>4):
-			ytickpos = ytickpos[::2]
-			ytickpos = np.append(ytickpos,[ytickpos[-1]+ytickpos[1]])
-		if(max_val/ytickpos[-1]>0.95):
-			ytickpos = np.append(ytickpos,[ytickpos[-1]+ytickpos[1]])
-		ax.set_yticks(ytickpos)
-		# format the y ticks
-		plt.setp(ax.get_yticklabels(), fontsize=16, weight='bold')
+		# # setup and format the x axis
+		# # give it a label
+		# ax.set_xlabel('dow',fontsize=16, position=(1.05,-0.1))
+		# # give it ticks and names
+		# ax.set_xticks(ind + width/2)
+		# xtickNames = ax.set_xticklabels(ind)
+		# # format the ticks
+		# plt.setp(xtickNames, fontsize=16, weight='bold')
 
-		# label the bars
-		label_barchart_rects(rects1, ax)
+		# # setup and format the y axis
+		# # give it a label
+		# ax.set_ylabel('counts',fontsize=16, position=(0,1.0))
+		# #reevaluate the ytick positions
+		# max_val = max(pricing_hist)
+		# ytickpos = ax.get_yticks()
+		# if(len(ytickpos)-2>4):
+		# 	ytickpos = ytickpos[::2]
+		# 	ytickpos = np.append(ytickpos,[ytickpos[-1]+ytickpos[1]])
+		# if(max_val/ytickpos[-1]>0.95):
+		# 	ytickpos = np.append(ytickpos,[ytickpos[-1]+ytickpos[1]])
+		# ax.set_yticks(ytickpos)
+		# # format the y ticks
+		# plt.setp(ax.get_yticklabels(), fontsize=16, weight='bold')
 
-		file_name = "dow_distribution"
-		dpi = fig.get_dpi()
-		fig.set_size_inches(1920.0/float(dpi),1080.0/float(dpi))
-		plt.subplots_adjust(top=0.85, bottom=0.12, left= 0.05, right=0.95)
-		fig.savefig(join(self.analysis_path,file_name))
-		plt.close(fig)
+		# # label the bars
+		# label_barchart_rects(rects1, ax)
+
+		# file_name = "dow_distribution"
+		# dpi = fig.get_dpi()
+		# fig.set_size_inches(1920.0/float(dpi),1080.0/float(dpi))
+		# plt.subplots_adjust(top=0.85, bottom=0.12, left= 0.05, right=0.95)
+		# fig.savefig(join(self.analysis_path,file_name))
+		# plt.close(fig)
 
 		return pricing_hist
 
@@ -2988,9 +3012,6 @@ class Station(object):
 						- unique_miss: the difference values after a ignored pricing
 						- counts_miss: the difference counts after a ignored pricing
 		"""
-		# generate a a figure
-		fig = plt.figure()
-		ax = fig.add_subplot(111)
 
 		# get the match and miss differences and their counts
 		unique_match, counts_match = np.unique(match_difs, return_counts=True)
@@ -2998,6 +3019,8 @@ class Station(object):
 		unique_comb = np.unique(np.concatenate((unique_match,unique_miss),axis=0))
 		# we need to have a value for each difference appearing in one of the lists
 		# therefore we need to fuse the unique values and update the counts
+
+
 		u_ma = 0
 		u_mi = 0
 		match_c = np.zeros((len(unique_comb),))
@@ -3015,64 +3038,69 @@ class Station(object):
 				u_mi+=1
 			i+=1
 
-		x_labels = unique_comb
+		# # PLOT:
+		# # generate a a figure
+		# fig = plt.figure()
+		# ax = fig.add_subplot(111)
 
-		# set title of the axe
-		ax.set_title(GAS[gas]+'_price_differences',fontsize=20, position=(0.5,1.0), weight='bold')
+		# x_labels = unique_comb
 
-		# widt of a bar
-		width = 0.4
-		# x position of the bars
-		ind = np.arange(len(match_c))+(width/2)
-		if(len(match_c)<=3):
-			ax.set_xlim(0,5)
-			ind+=1.0
-		# generate the bars with (x position, height, width, color)
-		rects1 = ax.bar(ind, match_c, width, color='red')
-		rects2 = ax.bar(ind+width, miss_c, width, color='green')
+		# # set title of the axe
+		# ax.set_title(GAS[gas]+'_price_differences',fontsize=20, position=(0.5,1.0), weight='bold')
 
-		# setup and format the x axis
-		# give it a label
-		ax.set_xlabel('price_dif',fontsize=16, position=(1.05,-0.1))
-		# give it ticks and names
-		ax.set_xticks(ind + width)
-		xtickNames = ax.set_xticklabels(x_labels)
-		# format the ticks
-		plt.setp(xtickNames, fontsize=16, weight='bold')
+		# # widt of a bar
+		# width = 0.4
+		# # x position of the bars
+		# ind = np.arange(len(match_c))+(width/2)
+		# if(len(match_c)<=3):
+		# 	ax.set_xlim(0,5)
+		# 	ind+=1.0
+		# # generate the bars with (x position, height, width, color)
+		# rects1 = ax.bar(ind, match_c, width, color='red')
+		# rects2 = ax.bar(ind+width, miss_c, width, color='green')
 
-		# setup and format the y axis
-		# give it a label
-		ax.set_ylabel('counts',fontsize=16, position=(0,1.0))
-		#reevaluate the ytick positions
-		max_val = max(max(miss_c), max(match_c))
-		ytickpos = ax.get_yticks()
-		if(len(ytickpos)-2>4):
-			ytickpos = ytickpos[::2]
-			ytickpos = np.append(ytickpos,[ytickpos[-1]+ytickpos[1]])
-		if(max_val/ytickpos[-1]>0.95):
-			ytickpos = np.append(ytickpos,[ytickpos[-1]+ytickpos[1]])
-		ax.set_yticks(ytickpos)
-		# format the y ticks
-		plt.setp(ax.get_yticklabels(), fontsize=16, weight='bold')
+		# # setup and format the x axis
+		# # give it a label
+		# ax.set_xlabel('price_dif',fontsize=16, position=(1.05,-0.1))
+		# # give it ticks and names
+		# ax.set_xticks(ind + width)
+		# xtickNames = ax.set_xticklabels(x_labels)
+		# # format the ticks
+		# plt.setp(xtickNames, fontsize=16, weight='bold')
 
-		# label the bars
-		label_barchart_rects(rects1,ax)
-		label_barchart_rects(rects2,ax)
+		# # setup and format the y axis
+		# # give it a label
+		# ax.set_ylabel('counts',fontsize=16, position=(0,1.0))
+		# #reevaluate the ytick positions
+		# max_val = max(max(miss_c), max(match_c))
+		# ytickpos = ax.get_yticks()
+		# if(len(ytickpos)-2>4):
+		# 	ytickpos = ytickpos[::2]
+		# 	ytickpos = np.append(ytickpos,[ytickpos[-1]+ytickpos[1]])
+		# if(max_val/ytickpos[-1]>0.95):
+		# 	ytickpos = np.append(ytickpos,[ytickpos[-1]+ytickpos[1]])
+		# ax.set_yticks(ytickpos)
+		# # format the y ticks
+		# plt.setp(ax.get_yticklabels(), fontsize=16, weight='bold')
+
+		# # label the bars
+		# label_barchart_rects(rects1,ax)
+		# label_barchart_rects(rects2,ax)
 		
-		# add a legend
-		legend = plt.figlegend((rects1[0], rects2[0]), ('dif after reaction', 'dif not reacted'), loc='lower center')
-		for label in legend.get_texts():
-			label.set_fontsize(20)
-			label.set_weight('bold')
+		# # add a legend
+		# legend = plt.figlegend((rects1[0], rects2[0]), ('dif after reaction', 'dif not reacted'), loc='lower center')
+		# for label in legend.get_texts():
+		# 	label.set_fontsize(20)
+		# 	label.set_weight('bold')
 
-		# save the figure
-		# create a file for the barchart with the name of the rule
-		file_name = '%s_price_differences'%(GAS[gas])
-		dpi = fig.get_dpi()
-		fig.set_size_inches(1920.0/float(dpi),1080.0/float(dpi))
-		plt.subplots_adjust(top=0.85, bottom=0.12, left= 0.05, right=0.95, hspace=0.2, wspace=0.2)
-		fig.savefig(join(self.analysis_path,file_name))
-		plt.close(fig)
+		# # save the figure
+		# # create a file for the barchart with the name of the rule
+		# file_name = '%s_price_differences'%(GAS[gas])
+		# dpi = fig.get_dpi()
+		# fig.set_size_inches(1920.0/float(dpi),1080.0/float(dpi))
+		# plt.subplots_adjust(top=0.85, bottom=0.12, left= 0.05, right=0.95, hspace=0.2, wspace=0.2)
+		# fig.savefig(join(self.analysis_path,file_name))
+		# plt.close(fig)
 
 		hists = (unique_comb, match_c, miss_c)
 		return hists
@@ -4076,54 +4104,55 @@ class Rule(object):
 			own_p_time = int(station.pricing_mat[o_idx,pa2i['time']]/3600)
 			match_hist[own_p_time]+=1
 
-		fig = plt.figure()
-		ax = fig.add_subplot(111)
-		ax.set_title('dist_%d-hour_distribution' %(self.max_p_dist,),fontsize=20, position=(0.5,1.0), weight='bold')
+		# # PLOT:
+		# fig = plt.figure()
+		# ax = fig.add_subplot(111)
+		# ax.set_title('dist_%d-hour_distribution' %(self.max_p_dist,),fontsize=20, position=(0.5,1.0), weight='bold')
 
-		# widt of a bar
-		width = 1
-		# x position of the bars
-		ind = np.arange(len(ignored_hist))
+		# # widt of a bar
+		# width = 1
+		# # x position of the bars
+		# ind = np.arange(len(ignored_hist))
 
-		# generate the bars with (x position, height, width, color)
-		rects1 = ax.bar(ind, match_hist, width, color='red')
-		rects2 = ax.bar(ind, ignored_hist, width, color='green', bottom=match_hist)
-		# setup and format the x axis
-		# give it a label
-		ax.set_xlabel('time',fontsize=16, position=(1.05,-0.1))
-		# give it ticks and names
-		ax.set_xticks(ind + width/2)
-		xtickNames = ax.set_xticklabels(ind)
-		# format the ticks
-		plt.setp(xtickNames, fontsize=16, weight='bold')
+		# # generate the bars with (x position, height, width, color)
+		# rects1 = ax.bar(ind, match_hist, width, color='red')
+		# rects2 = ax.bar(ind, ignored_hist, width, color='green', bottom=match_hist)
+		# # setup and format the x axis
+		# # give it a label
+		# ax.set_xlabel('time',fontsize=16, position=(1.05,-0.1))
+		# # give it ticks and names
+		# ax.set_xticks(ind + width/2)
+		# xtickNames = ax.set_xticklabels(ind)
+		# # format the ticks
+		# plt.setp(xtickNames, fontsize=16, weight='bold')
 
-		# setup and format the y axis
-		# give it a label
-		ax.set_ylabel('counts',fontsize=16, position=(0,1.0))
-		#reevaluate the ytick positions
-		comb_hist = ignored_hist+match_hist
-		max_val = max(comb_hist)
-		ytickpos = ax.get_yticks()
-		if(len(ytickpos)-2>4):
-			ytickpos = ytickpos[::2]
-			ytickpos = np.append(ytickpos,[ytickpos[-1]+ytickpos[1]])
-		if(max_val/ytickpos[-1]>0.95):
-			ytickpos = np.append(ytickpos,[ytickpos[-1]+ytickpos[1]])
-		ax.set_yticks(ytickpos)
-		# format the y ticks
-		plt.setp(ax.get_yticklabels(), fontsize=16, weight='bold')
+		# # setup and format the y axis
+		# # give it a label
+		# ax.set_ylabel('counts',fontsize=16, position=(0,1.0))
+		# #reevaluate the ytick positions
+		# comb_hist = ignored_hist+match_hist
+		# max_val = max(comb_hist)
+		# ytickpos = ax.get_yticks()
+		# if(len(ytickpos)-2>4):
+		# 	ytickpos = ytickpos[::2]
+		# 	ytickpos = np.append(ytickpos,[ytickpos[-1]+ytickpos[1]])
+		# if(max_val/ytickpos[-1]>0.95):
+		# 	ytickpos = np.append(ytickpos,[ytickpos[-1]+ytickpos[1]])
+		# ax.set_yticks(ytickpos)
+		# # format the y ticks
+		# plt.setp(ax.get_yticklabels(), fontsize=16, weight='bold')
 
-		# label the bars
-		label_barchart_rects2(rects1,match_hist+ignored_hist,ax)
+		# # label the bars
+		# label_barchart_rects2(rects1,match_hist+ignored_hist,ax)
 
-		if(not(isdir(self.analysis_path))): os.makedirs(self.analysis_path)
-		# create a file for the barchart with the name of the rule
-		file_name = "dist_%d-hour_distribution"%(self.max_p_dist,)
-		dpi = fig.get_dpi()
-		fig.set_size_inches(1920.0/float(dpi),1080.0/float(dpi))
-		plt.subplots_adjust(top=0.85, bottom=0.12, left= 0.05, right=0.95)
-		fig.savefig(join(self.analysis_path,file_name))
-		plt.close(fig)
+		# if(not(isdir(self.analysis_path))): os.makedirs(self.analysis_path)
+		# # create a file for the barchart with the name of the rule
+		# file_name = "dist_%d-hour_distribution"%(self.max_p_dist,)
+		# dpi = fig.get_dpi()
+		# fig.set_size_inches(1920.0/float(dpi),1080.0/float(dpi))
+		# plt.subplots_adjust(top=0.85, bottom=0.12, left= 0.05, right=0.95)
+		# fig.savefig(join(self.analysis_path,file_name))
+		# plt.close(fig)
 
 		return ignored_hist,match_hist
 
@@ -4147,54 +4176,56 @@ class Rule(object):
 			own_p_time = int(station.pricing_mat[o_idx,pa2i['dow']])
 			match_hist[own_p_time]+=1
 
-		fig = plt.figure()
-		ax = fig.add_subplot(111)
-		ax.set_title('dist_%d-day_distribution' %(self.max_p_dist,),fontsize=20, position=(0.5,1.0), weight='bold')
 
-		# widt of a bar
-		width = 1
-		# x position of the bars
-		ind = np.arange(len(ignored_hist))
+		# # PLOT:
+		# fig = plt.figure()
+		# ax = fig.add_subplot(111)
+		# ax.set_title('dist_%d-day_distribution' %(self.max_p_dist,),fontsize=20, position=(0.5,1.0), weight='bold')
 
-		# generate the bars with (x position, height, width, color)
-		rects1 = ax.bar(ind, match_hist, width, color='red')
-		rects2 = ax.bar(ind, ignored_hist, width, color='green', bottom=match_hist)
-		# setup and format the x axis
-		# give it a label
-		ax.set_xlabel('dow',fontsize=16, position=(1.05,-0.1))
-		# give it ticks and names
-		ax.set_xticks(ind + width/2)
-		xtickNames = ax.set_xticklabels([dow_to_string[dow] for dow in range(len(ignored_hist))])
-		# format the ticks
-		plt.setp(xtickNames, fontsize=16, weight='bold')
+		# # widt of a bar
+		# width = 1
+		# # x position of the bars
+		# ind = np.arange(len(ignored_hist))
 
-		# setup and format the y axis
-		# give it a label
-		ax.set_ylabel('counts',fontsize=16, position=(0,1.0))
-		#reevaluate the ytick positions
-		comb_hist = ignored_hist+match_hist
-		max_val = max(comb_hist)
-		ytickpos = ax.get_yticks()
-		if(len(ytickpos)-2>4):
-			ytickpos = ytickpos[::2]
-			ytickpos = np.append(ytickpos,[ytickpos[-1]+ytickpos[1]])
-		if(max_val/ytickpos[-1]>0.95):
-			ytickpos = np.append(ytickpos,[ytickpos[-1]+ytickpos[1]])
-		ax.set_yticks(ytickpos)
-		# format the y ticks
-		plt.setp(ax.get_yticklabels(), fontsize=16, weight='bold')
+		# # generate the bars with (x position, height, width, color)
+		# rects1 = ax.bar(ind, match_hist, width, color='red')
+		# rects2 = ax.bar(ind, ignored_hist, width, color='green', bottom=match_hist)
+		# # setup and format the x axis
+		# # give it a label
+		# ax.set_xlabel('dow',fontsize=16, position=(1.05,-0.1))
+		# # give it ticks and names
+		# ax.set_xticks(ind + width/2)
+		# xtickNames = ax.set_xticklabels([dow_to_string[dow] for dow in range(len(ignored_hist))])
+		# # format the ticks
+		# plt.setp(xtickNames, fontsize=16, weight='bold')
 
-		# label the bars
-		label_barchart_rects(rects2,ax)
+		# # setup and format the y axis
+		# # give it a label
+		# ax.set_ylabel('counts',fontsize=16, position=(0,1.0))
+		# #reevaluate the ytick positions
+		# comb_hist = ignored_hist+match_hist
+		# max_val = max(comb_hist)
+		# ytickpos = ax.get_yticks()
+		# if(len(ytickpos)-2>4):
+		# 	ytickpos = ytickpos[::2]
+		# 	ytickpos = np.append(ytickpos,[ytickpos[-1]+ytickpos[1]])
+		# if(max_val/ytickpos[-1]>0.95):
+		# 	ytickpos = np.append(ytickpos,[ytickpos[-1]+ytickpos[1]])
+		# ax.set_yticks(ytickpos)
+		# # format the y ticks
+		# plt.setp(ax.get_yticklabels(), fontsize=16, weight='bold')
 
-		if(not(isdir(self.analysis_path))): os.makedirs(self.analysis_path)
-		# create a file for the barchart with the name of the rule
-		file_name = "dist_%d-day_distribution"%(self.max_p_dist,)
-		dpi = fig.get_dpi()
-		fig.set_size_inches(1920.0/float(dpi),1080.0/float(dpi))
-		plt.subplots_adjust(top=0.85, bottom=0.12, left= 0.05, right=0.95)
-		fig.savefig(join(self.analysis_path,file_name))
-		plt.close(fig)
+		# # label the bars
+		# label_barchart_rects(rects2,ax)
+
+		# if(not(isdir(self.analysis_path))): os.makedirs(self.analysis_path)
+		# # create a file for the barchart with the name of the rule
+		# file_name = "dist_%d-day_distribution"%(self.max_p_dist,)
+		# dpi = fig.get_dpi()
+		# fig.set_size_inches(1920.0/float(dpi),1080.0/float(dpi))
+		# plt.subplots_adjust(top=0.85, bottom=0.12, left= 0.05, right=0.95)
+		# fig.savefig(join(self.analysis_path,file_name))
+		# plt.close(fig)
 
 		return ignored_hist,match_hist
 

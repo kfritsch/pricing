@@ -6,7 +6,7 @@ import pricing_globals
 
 from datetime import datetime, timedelta, time
 from math import sin, cos, atan2, sqrt, radians, atan, pi
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 from helper_functions import *
 
 # Postgresql help dict for querying
