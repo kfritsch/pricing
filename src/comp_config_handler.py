@@ -52,6 +52,7 @@ class Config(object):
     def pg_params(self):
     	pg_params = {}
     	pg_params['host'] = self.config.get(Config.PG_PARAMS, 'host')
+        pg_params['port'] = self.config.get(Config.PG_PARAMS, 'port')
     	pg_params['database'] = self.config.get(Config.PG_PARAMS, 'database')
     	pg_params['user'] = self.config.get(Config.PG_PARAMS, 'user')
     	pg_params['password'] = self.config.get(Config.PG_PARAMS, 'password')
