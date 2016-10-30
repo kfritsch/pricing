@@ -50,6 +50,7 @@ class My_HTTP_Request_Handler(BaseHTTPRequestHandler):
 			days = int(query['days'][0])
 			start_date = end_date - (timedelta(days=days))
 			d_int = (start_date.date(), end_date.date())
+			print(d_int)
 
 			if(pricing_globals.CURSOR is None):
 				con = psycopg2.connect(host=pg_params['host'],
@@ -70,16 +71,7 @@ class My_HTTP_Request_Handler(BaseHTTPRequestHandler):
 
 			# get the stations competition
 			
-			success = station.c_profile_competition(d_int=d_int,
-				lead_t=comp_params['lead_t'],
-				n_vals=(comp_params['n_max_range'],comp_params['n_min_num'],comp_params['n_max_num']),
-				one_rule=comp_params['one_rule'],
-				com_conf_div=comp_params['com_conf_div'],
-				hour_min=comp_params['hour_min'],
-				rule_conf=comp_params['rule_conf'],
-				com_conf=comp_params['com_conf'])
-
-			# success = station.get_competition(d_int=d_int,
+			# success = station.c_profile_competition(d_int=d_int,
 			# 	lead_t=comp_params['lead_t'],
 			# 	n_vals=(comp_params['n_max_range'],comp_params['n_min_num'],comp_params['n_max_num']),
 			# 	one_rule=comp_params['one_rule'],
@@ -87,6 +79,15 @@ class My_HTTP_Request_Handler(BaseHTTPRequestHandler):
 			# 	hour_min=comp_params['hour_min'],
 			# 	rule_conf=comp_params['rule_conf'],
 			# 	com_conf=comp_params['com_conf'])
+
+			success = station.get_competition(d_int=d_int,
+				lead_t=comp_params['lead_t'],
+				n_vals=(comp_params['n_max_range'],comp_params['n_min_num'],comp_params['n_max_num']),
+				one_rule=comp_params['one_rule'],
+				com_conf_div=comp_params['com_conf_div'],
+				hour_min=comp_params['hour_min'],
+				rule_conf=comp_params['rule_conf'],
+				com_conf=comp_params['com_conf'])
 
 			if(not(success)):
 				self.send_error(0, "No competition")

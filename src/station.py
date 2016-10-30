@@ -309,7 +309,7 @@ class Station(object):
 				if(c_e10==0):
 					self.pricing_mat[i,pa2i['e10']] = float(prev_price[4])/10
 					self.pricing_mat[i,pa2i['d_e10']] = 0
-					fol_price[4] = prev_price[4]
+					fol_price[3] = prev_price[3]
 				else:		
 					self.pricing_mat[i,pa2i['e10']] = float(c_e10)/10
 					self.pricing_mat[i,pa2i['d_e10']] = e10_dif
@@ -1603,7 +1603,9 @@ class Station(object):
 		@dtype rule_hours: list(Boolean)
 		"""
 		drops_occure = drop_dist[np.where(drop_dist>0)]
+		print(drops_occure)
 		mean_drop_per_hour = np.sum(drops_occure)/len(drops_occure)
+		print(mean_drop_per_hour)
 		threshold = int((mean_drop_per_hour/10)+1)
 		# get those times where pricings occur regularly as candidaes for rules
 		rule_hours = [drop_cnt>=threshold for drop_cnt in drop_dist]
@@ -1668,6 +1670,7 @@ class Station(object):
 			p_time = int(own_p[pa2i['time']]/3600)
 			if(is_raise(own_p)):
 				raise_hist[p_time]+=1
+				print(pricing_to_string(own_p))
 			else:
 				pricing_hist[p_time]+=1
 
