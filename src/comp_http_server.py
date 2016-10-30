@@ -8,8 +8,6 @@ from os.path import join, realpath, dirname, isdir
 SRC_PATH = dirname(realpath(__file__))
 MODUL_PATH = join(dirname(realpath(__file__)), os.pardir)
 # the analysis_docs path is the projects subfolder for outputs to be analysed
-ANALYSIS_PATH = join(MODUL_PATH, "tmp")
-if(not(isdir(ANALYSIS_PATH))): os.makedirs(ANALYSIS_PATH)
 
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 
@@ -100,7 +98,6 @@ class My_HTTP_Request_Handler(BaseHTTPRequestHandler):
 				self.end_headers()
 
 				self.wfile.write(report)
-			clear_dir(ANALYSIS_PATH)
 			return
 
 		except IOError:
