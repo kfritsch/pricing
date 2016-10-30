@@ -473,7 +473,7 @@ class Station(object):
 				if(c_e10==0):
 					self.pricing_mat[i,pa2i['e10']] = float(prev_price[4])/10
 					self.pricing_mat[i,pa2i['d_e10']] = 0
-					fol_price[4] = prev_price[4]
+					fol_price[3] = prev_price[3]
 				else:		
 					self.pricing_mat[i,pa2i['e10']] = float(c_e10)/10
 					self.pricing_mat[i,pa2i['d_e10']] = e10_dif
