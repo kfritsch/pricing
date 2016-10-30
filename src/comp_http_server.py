@@ -51,7 +51,7 @@ class My_HTTP_Request_Handler(BaseHTTPRequestHandler):
 			end_date = datetime.strptime(query['time'][0], "%Y-%m-%dT%H:%M:%S")
 			days = int(query['days'][0])
 			start_date = end_date - (timedelta(days=days))
-			d_int = (start_date.date(), end_date.date())
+			d_int = (start_date.date(), end_date.date())s
 
 			if(pricing_globals.CURSOR is None):
 				con = psycopg2.connect(host=pg_params['host'],
@@ -96,6 +96,8 @@ class My_HTTP_Request_Handler(BaseHTTPRequestHandler):
 				report = station.get_json()
 
 				self.send_response(200)
+				self.send_header('Content-Type', 'application/json')
+				self.end_headers()
 
 				self.wfile.write(report)
 			clear_dir(ANALYSIS_PATH)
