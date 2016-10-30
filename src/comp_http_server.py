@@ -51,7 +51,7 @@ class My_HTTP_Request_Handler(BaseHTTPRequestHandler):
 			end_date = datetime.strptime(query['time'][0], "%Y-%m-%dT%H:%M:%S")
 			days = int(query['days'][0])
 			start_date = end_date - (timedelta(days=days))
-			d_int = (start_date.date(), end_date.date())s
+			d_int = (start_date.date(), end_date.date())
 
 			if(pricing_globals.CURSOR is None):
 				con = psycopg2.connect(host=pg_params['host'],
