@@ -448,6 +448,7 @@ class Station(object):
 			neigh_id = self.neighbors[i][0]
 			neigh = pricing_globals.STATION_DICT[neigh_id]
 			self.rules_pn[neigh_id] = {}
+			print(neigh)
 
 			# check for the hours of the day where a rule might apply for the neighbor
 			neigh_drop_hist, neigh_raise_hist = neigh.get_pricing_hour_dist(range(len(neigh.pricing_mat)), 'mon-sun')
@@ -572,8 +573,14 @@ class Station(object):
 		return True
 
 	def c_profile_competition(self, d_int, lead_t=2700, n_vals=(5,5,20), one_rule=False, com_conf_div=False, hour_min=3, rule_conf=0.5, com_conf=0.03):
-		success = cProfile.runctx('self.get_competition(d_int, lead_t, n_vals, one_rule, com_conf_div, hour_min, rule_conf, com_conf)', globals(), locals())
-		return success
+		success = []
+		cProfile.runctx('self.competition_wrapper(d_int, lead_t, n_vals, one_rule, com_conf_div, hour_min, rule_conf, com_conf, success)', globals(), locals())
+		print(success)
+		return success[0]
+
+	def competition_wrapper(self, d_int, lead_t=2700, n_vals=(5,5,20), one_rule=False, com_conf_div=False, hour_min=3, rule_conf=0.5, com_conf=0.03, success=[]):
+		success.append(self.get_competition(d_int, lead_t, n_vals, one_rule, com_conf_div, hour_min, rule_conf, com_conf))
+		return
 
 	def save_json(self, file_dir):
 		if(not(isdir(file_dir))): os.makedirs(file_dir)
